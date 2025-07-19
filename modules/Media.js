@@ -1,6 +1,7 @@
 const faceDetection = require('./MediapipeFaceDetect.js')();
 const bodySegmentation = require('./MediapipeBodySegment.js')();
 const screenShare = require('./ShareScreen')();
+const screenRecord = require('./RecordScreen')();
 
 const errors = [
   { name: ['NotFoundError', 'DevicesNotFoundError'], message: 'required track is missing' },
@@ -108,6 +109,7 @@ module.exports = () => {
     });
 
     Media.screenShare = screenShare.initial(this.parent);
+    Media.screenRecord = screenRecord.initial(this.parent);
   }
 
   /**
@@ -160,6 +162,8 @@ module.exports = () => {
         processedMedia.addTrack(audioTrack);
 
         Media.userMedia = processedMedia;
+
+        Media.screenRecord.mixMicScreenAudioStreams();
 
         if (muteAudio) {
           Media.muteMicrophone();
@@ -458,6 +462,7 @@ module.exports = () => {
   }
 
   Media.screenShare = {};
+  Media.screenRecord = {};
 
   return Media;
 }

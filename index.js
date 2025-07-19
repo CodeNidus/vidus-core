@@ -42,6 +42,9 @@ class Webrtc
     this.Media.setup(this, options)
     this.People.setup(this, connections, waitingList, options)
 
+    this.on('peerJsData', 'screenShare', this.Media.screenShare.closeScreenShare)
+    this.on('peerJsData', 'recordScreen', this.Media.screenRecord.setStatus)
+
     const setupEvent = new Event('codenidus-vidus-setup')
     document.dispatchEvent(setupEvent)
   }
@@ -64,7 +67,6 @@ class Webrtc
 
       // set events
       this.on('peerJsData', 'muteMedia', this.Media.setConnectionMediaStatus)
-      this.on('peerJsData', 'screenShare', this.Media.screenShare.closeScreenShare)
 
     }).catch(err => {
       console.log('error happened for webrtc initial', err)
@@ -223,6 +225,10 @@ class Webrtc
 
   isMobileDevice() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+
+  isFirefox() {
+    return /firefox/i.test(navigator.userAgent);
   }
 
   notify(title, text) {

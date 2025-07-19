@@ -32,6 +32,7 @@ module.exports = () => {
         camMute: true,
         micMute: true,
         share: false,
+        record: false,
         name: ((userIndex !== -1)? this.parent.Room.information.users[userIndex].name : ''),
         isCreator: ((userIndex !== -1)? this.parent.Room.information.users[userIndex].roomCreator : false),
       });
