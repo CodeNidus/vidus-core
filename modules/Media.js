@@ -286,6 +286,8 @@ module.exports = () => {
       Media.streamVideo(connection.peerJsId, connection.stream);
       Media.streamAudio(connection.peerJsId, connection.stream);
     });
+
+
   }
 
   /**
@@ -450,6 +452,14 @@ module.exports = () => {
       connection.micMute = data.micMute;
       Media.streamVideo(data.peerJsId, connection.mediaConnection.remoteStream);
       Media.streamAudio(data.peerJsId, connection.mediaConnection.remoteStream);
+
+      const event = new CustomEvent('onVidus-connections-resetMediaStream', {
+        detail: {
+          peerJsId: data.peerJsId
+        }
+      });
+
+      window.dispatchEvent(event);
 
       if(connection.camMute) {
         connection.camCover = true;

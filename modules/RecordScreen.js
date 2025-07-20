@@ -13,13 +13,15 @@ module.exports = () => {
         _audioContext: null,
         _destination: null,
         _screenAudioSource: null,
-        _micAudioSource: null
+        _micAudioSource: null,
+        _connectionsAudioSource: [],
     }
 
     RecordScreen.initial = (parent) => {
         RecordScreen.parent = parent
         RecordScreen.recorder = null
         RecordScreen.initializeFFmpeg()
+        RecordScreen.listenToEvents()
 
         return RecordScreen
     }
@@ -35,6 +37,12 @@ module.exports = () => {
             await RecordScreen.ffmpeg.load();
             RecordScreen.isFFmpegLoaded = true;
         }
+    }
+
+    RecordScreen.listenToEvents = () => {
+        window.addEventListener('onVidus-connections-resetMediaStream', function (event) {
+            RecordScreen.mixMicScreenAudioStreams();
+        });
     }
 
     RecordScreen.startRecord = async () => {
@@ -64,6 +72,8 @@ module.exports = () => {
             RecordScreen._audioContext = audioContext;
             RecordScreen._destination = destination;
             RecordScreen._screenAudioSource = screenAudio;
+
+            screenAudio.connect(RecordScreen._destination);
 
             await RecordScreen.mixMicScreenAudioStreams();
 
@@ -127,6 +137,21 @@ module.exports = () => {
         micAudio.connect(RecordScreen._destination);
 
         RecordScreen._micAudioSource = micAudio;
+
+        // Mix with connected users audio streams
+        RecordScreen._connectionsAudioSource.forEach(item => {
+            item.disconnect();
+        })
+
+        RecordScreen._connectionsAudioSource = [];
+
+        const connections = RecordScreen.parent.People.getConnections();
+
+        connections.forEach(function (item, index) {
+            const connectionAudio = RecordScreen._audioContext.createMediaStreamSource(item.stream);
+            RecordScreen._connectionsAudioSource.push(connectionAudio);
+            connectionAudio.connect(RecordScreen._destination);
+        })
 
         // Update the mixed mediaStream audio tracks:
         RecordScreen.mediaStream = new MediaStream([
