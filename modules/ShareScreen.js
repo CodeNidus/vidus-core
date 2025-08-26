@@ -30,10 +30,11 @@ module.exports = () => {
                     eventListener: false,
                 });
 
+                const token = await ShareScreen.parent.getUserToken();
                 const screenShare = document.getElementById(this.parent.options.screenShareRef);
                 screenShare.style.display = 'block';
 
-                await this.parent.peerJsObject.screenShareConnection(true);
+                await this.parent.peerJsObject.screenShareConnection(true, token);
 
                 const connections = this.parent.People.getConnections();
                 const peerObject = this.parent.peerJsObject.sharePeer;

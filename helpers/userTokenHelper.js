@@ -25,13 +25,13 @@ module.exports = (options) => {
         return Helper
     }
 
-    Helper.getToken = async (next, error = (e) => console.log(e)) => {
+    Helper.getToken = async (next = (token) => {return token}, error = (e) => console.log(e)) => {
         try {
             if (!this.webrtcToken || !this.webrtcToken.token || this.webrtcToken.expired < Date.now()) {
                 await Helper.reGenerateToken()
             }
 
-            next(this.webrtcToken.token)
+            return next(this.webrtcToken.token)
         } catch (e) {
             error(e)
         }

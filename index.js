@@ -95,10 +95,10 @@ class Webrtc
   /**
    * Start PeerJs Connection
    */
-  async initialPeerJs() {
+  async initialPeerJs(token) {
     return new Promise(async (resolve, reject) => {
       try {
-        await new PeerJs(this.Events).then((peerJsObject) => {
+        await new PeerJs(this.Events, token).then((peerJsObject) => {
           this.peerJsObject = peerJsObject;
           this.peerJs = this.peerJsObject.videoPeer;
           this.peerJsId = this.peerJsObject.getId();
@@ -236,7 +236,7 @@ class Webrtc
     alert(text);
   }
 
-  getUserToken(next, error = (e) => console.log(e)) {
+  getUserToken(next = (token) => {return token}, error = (e) => console.log(e)) {
     return this.helpers.userToken.getToken(next, error)
   }
 
