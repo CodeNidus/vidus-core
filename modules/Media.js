@@ -3,53 +3,63 @@ const bodySegmentation = require('./MediapipeBodySegment.js')();
 const screenShare = require('./ShareScreen')();
 const screenRecord = require('./RecordScreen')();
 
-const errors = [
-  { name: ['NotFoundError', 'DevicesNotFoundError'], message: 'required track is missing' },
-  { name: ['NotReadableError', 'TrackStartError'], message: 'webcam or mic are already in use ' },
-  { name: ['OverconstrainedError', 'ConstraintNotSatisfiedError'], message: 'constraints can not be satisfied by avb. devices' },
-  { name: ['NotAllowedError', 'PermissionDeniedError'], message: 'permission denied in browser' },
-  { name: ['TypeError'], message: 'empty constraints object' },
-];
-
-const createEmptyVideoTrack = ({ width, height }) => {
-  const canvas = Object.assign(document.createElement('canvas'), { width, height });
-  canvas.getContext('2d').fillRect(0, 0, width, height);
-
-  const stream = canvas.captureStream();
-  const track = stream.getVideoTracks()[0];
-
-  return Object.assign(track, { enabled: false });
-};
-
-/**
- * Draw video frame image on canvas
- */
-const drawVideoOnCanvas = async (video, canvas) => {
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-}
-
-/**
- * Flip horizontal canvas frame image
- */
-const flipVideoImage = async (canvas) => {
-  const ctx = canvas.getContext('2d');
-
-  ctx.save();
-  ctx.scale(-1, 1);
-  ctx.drawImage(canvas, canvas.width * -1, 0, canvas.width, canvas.height);
-  ctx.restore();
-}
-
-const scale = 1.33;
-const resolutions = {
-  qvga: 320,
-  vga: 640,
-  hd: 1280,
-  fhd: 1920
-}
-
 module.exports = () => {
+
+  const DEFAULT_FPS = 30;
+  const BLUR_INTENSITY = 20;
+  const VIDEO_SCALE = 1.33;
+  const RESOLUTIONS = {
+    qvga: 320,
+    vga: 640,
+    hd: 1280,
+    fhd: 1920
+  };
+
+  const mediaGrabErrors = [
+    { name: ['NotFoundError', 'DevicesNotFoundError'], message: 'required track is missing' },
+    { name: ['NotReadableError', 'TrackStartError'], message: 'webcam or mic are already in use ' },
+    { name: ['OverconstrainedError', 'ConstraintNotSatisfiedError'], message: 'constraints can not be satisfied by avb. devices' },
+    { name: ['NotAllowedError', 'PermissionDeniedError'], message: 'permission denied in browser' },
+    { name: ['TypeError'], message: 'empty constraints object' },
+  ];
+
+  /**
+   * Create an empty, disabled video track by drawing a black canvas frame.
+   * Useful when camera is disabled but a video track is still needed in the stream.
+   */
+  const createEmptyVideoTrack = ({ width, height }) => {
+    const canvas = Object.assign(document.createElement('canvas'), { width, height });
+    canvas.getContext('2d').fillRect(0, 0, width, height);
+
+    const stream = canvas.captureStream();
+    const track = stream.getVideoTracks()[0];
+
+    return Object.assign(track, { enabled: false });
+  };
+
+  /**
+   * Draw the current frame from a video element onto a canvas.
+   * @param {HTMLVideoElement} video
+   * @param {HTMLCanvasElement} canvas
+   */
+  const drawVideoOnCanvas = async (video, canvas) => {
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  };
+
+  /**
+   * Flip the canvas horizontally to create a mirror image effect.
+   * @param {HTMLCanvasElement} canvas
+   */
+  const flipVideoImage = async (canvas) => {
+    const ctx = canvas.getContext('2d');
+
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(canvas, canvas.width * -1, 0, canvas.width, canvas.height);
+    ctx.restore();
+  };
+
 
   const Media = {
     parent: null,
@@ -60,63 +70,67 @@ module.exports = () => {
     video: null,
     interval: null,
     process: false,
-    bodySegmenter: null,
-    faceDetector: null,
-  };
-
-  Media.setup = (parent, options) => {
-    this.parent = parent;
-    this.events = {
-      play: [],
-    };
-    this.devices = null;
-    this.userMedia = null;
-    this.options = options;
-    this.canvas = document.createElement('canvas');
-    this.video = document.createElement('video');
-
-    // set camera resolution size
-    const isPortrait = window.innerWidth < window.innerHeight;
-
-    this.options.minVideoWidth = isPortrait? resolutions[this.options.resolution] / scale : resolutions[this.options.resolution];
-    this.options.minVideoHeight = isPortrait? resolutions[this.options.resolution] : resolutions[this.options.resolution] / scale;
-    this.options.maxVideoWidth = isPortrait? resolutions[this.options.resolution] / scale : resolutions[this.options.resolution];
-    this.options.maxVideoHeight = isPortrait? resolutions[this.options.resolution] : resolutions[this.options.resolution] / scale;
-
-    this.canvas.width = this.options.minVideoWidth;
-    this.canvas.height = this.options.minVideoHeight;
-    this.video.width = this.options.minVideoWidth;
-    this.video.height = this.options.minVideoHeight;
-
-    this.bodySegmenter = {
+    events: null,
+    bodySegmenter: {
       segmenter: null,
       blur: 0,
-    };
-
-    this.faceDetector = {
+    },
+    faceDetector: {
       detector: null,
       detect: false,
       positions: null,
       callbacks: []
+    },
+  };
+
+  /**
+   * Setup the Media module with parent config and options.
+   * Initialize video/canvas elements, set resolutions, and initialize subsystems.
+   */
+  Media.setup = async (parent, options) => {
+    Media.parent = parent;
+    Media.options = options;
+    Media.devices = null;
+    Media.userMedia = null;
+    Media.events = {
+      play: [],
     };
 
-    bodySegmentation.initial(this.parent.configs).then(segmenter => {
-      this.bodySegmenter.segmenter = segmenter;
+    Media.canvas = document.createElement('canvas');
+    Media.video = document.createElement('video');
 
-      faceDetection.initial(this.parent.configs).then(detector => {
-        this.faceDetector.detector = detector;
-      });
-    });
+    // set camera resolution size
+    const isPortrait = window.innerWidth < window.innerHeight;
+    const resolution = RESOLUTIONS[Media.options.resolution];
 
-    Media.screenShare = screenShare.initial(this.parent);
-    Media.screenRecord = screenRecord.initial(this.parent);
+    Media.options.minVideoWidth = isPortrait? resolution / VIDEO_SCALE : resolution;
+    Media.options.minVideoHeight = isPortrait? resolution : resolution / VIDEO_SCALE;
+    Media.options.maxVideoWidth = isPortrait? resolution / VIDEO_SCALE : resolution;
+    Media.options.maxVideoHeight = isPortrait? resolution : resolution / VIDEO_SCALE;
+
+    Media.canvas.width = Media.options.minVideoWidth;
+    Media.canvas.height = Media.options.minVideoHeight;
+    Media.video.width = Media.options.minVideoWidth;
+    Media.video.height = Media.options.minVideoHeight;
+
+    try {
+      Media.screenShare = screenShare.initial(Media.parent);
+      Media.screenRecord = screenRecord.initial(Media.parent);
+      Media.bodySegmenter.segmenter = await bodySegmentation.initial(Media.parent.configs);
+      Media.faceDetector.detector = await faceDetection.initial(Media.parent.configs);
+    } catch (error) {
+      console.error('Media setup failed:', error);
+      throw error;
+    }
   }
 
   /**
-   * Grab User Media
+   * Request access to user media devices (camera and microphone).
+   * Supports muting video or audio optionally.
+   * Returns a processed MediaStream combining canvas stream and audio track.
    */
-  Media.grab = (devices, muteVideo = false, muteAudio = false) => {
-    return new Promise(async (resolve, reject) => {
+  Media.grab = async (devices, muteVideo = false, muteAudio = false) => {
+    try {
       Media.devices = devices;
 
       let videoParams = (muteVideo)? false : {
@@ -124,12 +138,12 @@ module.exports = () => {
           exact: devices.camera,
         },
         width: {
-          min: this.options.minVideoWidth,
-          max: this.options.maxVideoWidth
+          min: Media.options.minVideoWidth,
+          max: Media.options.maxVideoWidth
         },
         height: {
-          min: this.options.minVideoHeight,
-          max: this.options.maxVideoHeight
+          min: Media.options.minVideoHeight,
+          max: Media.options.maxVideoHeight
         }
       };
 
@@ -139,202 +153,230 @@ module.exports = () => {
         }
       };
 
-      navigator.mediaDevices.getUserMedia({
+      const media = await navigator.mediaDevices.getUserMedia({
         video: videoParams,
         audio: audioParams
-      }).then(media => {
+      });
 
-        clearInterval(this.interval);
 
-        if (this.parent.userSettings.camDisable) {
-          media.addTrack(createEmptyVideoTrack({ width:640, height:480 }));
-        }
+      clearInterval(Media.interval);
 
-        this.video.srcObject = media;
-        this.video.muted = true;
-        this.video.play();
-
-        const audioTrack = media.getAudioTracks()[0];
-
-        this.video.addEventListener('loadeddata', Media.setInterval);
-
-        const processedMedia = this.canvas.captureStream();
-        processedMedia.addTrack(audioTrack);
-
-        Media.userMedia = processedMedia;
-
-        Media.screenRecord.mixMicScreenAudioStreams();
-
-        if (muteAudio) {
-          Media.muteMicrophone();
-        }
-
-        resolve(processedMedia);
-        }).catch(error => {
-          let message = null;
-
-          for (const item of errors) {
-            if (item.name.includes(error.name)) {
-              message = item.message;
-              break;
-            }
-          }
-
-          reject(message || error.name);
-        });
-    });
-  }
-
-  Media.setInterval = () => {
-    if (!this.parent.userSettings.camDisable) {
-      this.process = false;
-      this.interval = setInterval(Media.processOnMedia, 1000 / this.parent.configs.mediapipe.fps);
-    }
-  }
-
-  Media.processOnMedia = async () => {
-    if (this.process) return;
-
-    this.process = true;
-
-    await drawVideoOnCanvas(this.video, this.canvas);
-
-    if(!this.parent.userSettings.camDisable) {
-      await flipVideoImage(this.canvas);
-
-      if (this.bodySegmenter.blur > 0) {
-        await bodySegmentation.blur(this.bodySegmenter, this.canvas);
+      if (Media.parent.userSettings.camDisable) {
+        media.addTrack(createEmptyVideoTrack({ width:640, height:480 }));
       }
 
-      if (this.faceDetector && this.faceDetector.callbacks.length > 0) {
-        const index =  this.faceDetector.callbacks.findIndex(x => x.enable);
+      Media.video.srcObject = media;
+      Media.video.muted = true;
+      Media.video.play();
 
-        if (index > -1) {
-          await faceDetection.detect(this.faceDetector, this.canvas);
+      const audioTrack = media.getAudioTracks()[0];
 
-          this.faceDetector.callbacks.forEach(item => {
-            if(!item.enable || this.faceDetector.positions.length === 0) return;
-            item.callback(this.faceDetector.positions[0].box, this.canvas, item.name);
-          });
-        }
+      Media.video.addEventListener('loadeddata', Media.setInterval);
+
+      const processedMedia = Media.canvas.captureStream();
+      processedMedia.addTrack(audioTrack);
+
+      Media.userMedia = processedMedia;
+
+      Media.screenRecord.mixMicScreenAudioStreams();
+
+      if (muteAudio) {
+        Media.muteMicrophone();
       }
+
+      return processedMedia;
+    } catch (error) {
+      const errorMessage = mediaGrabErrors.find(e => e.name.includes(error.name));
+      const message = errorMessage?.message || error.name;
+      return message || error.name;
     }
-
-    this.process = false;
-  }
-
-  Media.blurBackground = (status = true) => {
-    this.bodySegmenter.blur = (!status)? 0 : 20;
   }
 
   /**
-   * Mediapipe face detection callback actions register
+   * Start periodic media processing interval according to configured FPS.
    */
-  Media.registerFaceDetectorCallback = (name, callback) => {
+  Media.setInterval = () => {
+    if (Media.parent.userSettings.camDisable) return;
 
-    if (!this.faceDetector?.callbacks) {
-
+    if (Media.interval) {
+      clearInterval(Media.interval)
+      Media.interval = null;
     }
 
-    let index = this.faceDetector?.callbacks.findIndex(x => x.name === name) || -1;
+    const fps = Media.parent?.configs?.mediapipe?.fps || DEFAULT_FPS;
 
-    if (index > 0) {
-      this.faceDetector.callbacks[index]['callback'] = callback;
+    Media.process = false;
+    Media.interval = setInterval(Media.processOnMedia, 1000 / fps);
+  };
+
+  /**
+   * Main media processing loop to capture video frames, flip image,
+   * apply body segmentation blur, and detect faces with callbacks.
+   */
+  Media.processOnMedia = async () => {
+    if (Media.process) return;
+
+    Media.process = true;
+
+    try {
+      await drawVideoOnCanvas(Media.video, Media.canvas);
+
+      if (Media.parent.userSettings.camDisable) {
+        Media.process = false;
+        return;
+      }
+
+      await flipVideoImage(Media.canvas);
+
+      if (Media.bodySegmenter.blur > 0) {
+        await bodySegmentation.blur(Media.bodySegmenter, Media.canvas);
+      }
+
+      const faceDetectorCallbacks = Media.faceDetector.callbacks.filter(cb => cb.enable);
+
+      if (faceDetectorCallbacks.length > 0) {
+        await faceDetection.detect(Media.faceDetector, Media.canvas);
+
+        if (Media.faceDetector.positions?.length > 0) {
+          const faceBox = Media.faceDetector.positions[0].box;
+
+          faceDetectorCallbacks.forEach(cb => {
+            try {
+              cb.callback(faceBox, Media.canvas, cb.name);
+            } catch (err) {
+              console.warn(`[Media.processOnMedia] Face detection callback error for '${cb.name}':`, err);
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('[Media.processOnMedia] Processing error:', error);
+    } finally {
+      Media.process = false;
+    }
+  };
+
+  /**
+   * Enable or disable background blur (body segmentation).
+   * @param {boolean} status
+   */
+  Media.blurBackground = (status = true) => {
+    Media.bodySegmenter.blur = status? BLUR_INTENSITY : 0;
+  };
+
+  /**
+   * Register or update a face detection callback by name.
+   * @param {string} name
+   * @param {function} callback
+   * @returns
+   */
+  Media.registerFaceDetectorCallback = (name, callback) => {
+    let index = Media.faceDetector.callbacks.findIndex(cb => cb.name === name);
+
+    if (index >= 0) {
+      Media.faceDetector.callbacks[index]['callback'] = callback;
     } else {
-      index = this.faceDetector.callbacks.push({
+      index = Media.faceDetector.callbacks.push({
         name: name,
         enable: false,
         callback: callback
       }) - 1;
     }
 
-    return this.faceDetector.callbacks[index];
-  }
+    return Media.faceDetector.callbacks[index];
+  };
 
   /**
-   * Release User Media
+   * Stop and release user media tracks and clear intervals.
    */
   Media.release = () => {
-    const stopTracks = (item) => {
-      const stream = item.srcObject;
+    const stopMediaTracks = (element) => {
+      if (!element?.srcObject) return;
 
-      if (stream) {
-        const tracks = stream?.getTracks();
-
-          tracks.forEach((track) => {
-              track.stop();
-          });
-      }
-
+      const tracks = element.srcObject.getTracks();
+      tracks.forEach(track => {
+        try {
+          track.stop();
+        } catch (err) {
+          console.warn('[Media.release] Failed to stop track:', err);
+        }
+      });
     }
 
-    stopTracks(this.video);
-    clearInterval(this.interval);
+    stopMediaTracks(Media.video);
+    clearInterval(Media.interval);
 
-    this.video.removeEventListener('loadeddata', Media.setInterval);
+    if (Media.video) {
+      Media.video.removeEventListener('loadeddata', Media.setInterval);
+    }
 
     Media.userMedia = null;
-  }
+  };
 
   /**
-   * Reset all connections media
+   * Reset all peer connections' media streams (video/audio).
    */
   Media.resetConnectionsStream = () => {
-    const connections = this.parent.People.getConnections();
+    const connections = Media.parent.People.getConnections();
 
     connections.forEach(connection => {
       Media.streamVideo(connection.peerJsId, connection.stream);
       Media.streamAudio(connection.peerJsId, connection.stream);
     });
+  };
 
-
-  }
 
   /**
-   * Set mediaStream video
+   * Set video element's media stream for a given peer or local user.
+   * Optionally allow custom element references and event handling.
    */
   Media.streamVideo = (peerJsId, media, options = {}) => {
-    let reference = (!peerJsId)? this.options.localVideoRef : this.options.remoteVideoRef + '-' + peerJsId;
-    let video = document.getElementById(
-        (!!options?.customReference)?
-            options.customReference :
-            reference
-    );
+    const baseRef = peerJsId ? `${Media.options.remoteVideoRef}-${peerJsId}` : Media.options.localVideoRef;
+    const reference = options.customReference || baseRef;
+    const video = document.getElementById(reference);
 
-    video.muted = (!options?.videoMute || options.videoMute === true);
+    if (!video) return;
+
+    video.muted = options.videoMute !== false;
     video.srcObject = media;
-    video.addEventListener('loadedmetadata', () => {
-      video.play();
-    }, { once: true });
 
-    if (!options?.eventListener || options.eventListener === true) {
+    video.addEventListener('loadedmetadata', () => video.play(), { once: true });
+
+    if (options.eventListener !== false) {
       video.addEventListener('play', () => {
-        if(!this.events.play && this.events.play.length > 0) {
-          this.events.play.forEach((item) => {
+        if(!Media.events.play && Media.events.play.length > 0) {
+          Media.events.play.forEach((item) => {
             if(!item.handler) return false;
             item.handler(video);
           });
         }
       }, { once: true });
     }
-  }
+  };
+
 
   /**
-   * Set mediaStream audio
+   * Set audio element's media stream for a remote peer.
    */
   Media.streamAudio = (peerJsId, media) => {
-    let reference = this.options.remoteAudioRef + '-' + peerJsId;
-    let audio = document.getElementById(reference);
-
+    const reference = `${Media.options.remoteAudioRef}-${peerJsId}`;
+    const audio = document.getElementById(reference);
+    if (!audio) return;
     audio.srcObject = media;
-  }
+  };
 
+  /**
+   * Register or update event handlers for media events (e.g. play).
+   * @param {string} name Event name
+   * @param {function} handler Event handler function
+   * @param {string} section Event section (default 'play')
+   */
   Media.setEvent = (name = 'none', handler = () => {}, section = 'play') => {
-    if (!Media.hasOwnProperty('events')) Media.events = {};
-    if (!Media.events.hasOwnProperty(section)) Media.events[section] = [];
+    if (!Media.events) Media.events = {};
+    if (!Media.events[section]) Media.events[section] = [];
 
-    let index = Media.events[section].findIndex(x => x.name === name);
-    let item  = {
+    const index = Media.events[section].findIndex(x => x.name === name);
+    const item  = {
       name: name,
       handler: handler
     };
@@ -347,29 +389,32 @@ module.exports = () => {
   }
 
   /**
-   * Mute user camera to other users
+   * Mute user's camera by terminating video tracks on peer connections.
    */
   Media.muteCamera = () => {
     Media.terminateConnectionsVideoAudioMedia('video');
   }
 
+
   /**
-   * Mute user microphone to other users
+   * Mute user's microphone by disabling audio tracks on peer connections.
    */
   Media.muteMicrophone = () => {
     Media.terminateConnectionsVideoAudioMedia('audio');
   }
 
+
   /**
-   * Reset joined users peer video audio stream media
+   * Update all peer connections to use a new media stream's video and audio tracks.
+   * @param {MediaStream} media
    */
   Media.resetConnectionsVideoAudioMedia = (media) => {
-    let connections = this.parent.People.getConnections();
+    const connections = Media.parent.People.getConnections();
 
     connections.forEach(connection => {
-      let senders = connection.mediaConnection.peerConnection.getSenders();
-      let camIndex = senders.findIndex(x => x.track && x.track.kind === 'video');
-      let micIndex = senders.findIndex(x => x.track && x.track.kind === 'audio');
+      const senders = connection.mediaConnection.peerConnection.getSenders();
+      const camIndex = senders.findIndex(x => x.track && x.track.kind === 'video');
+      const micIndex = senders.findIndex(x => x.track && x.track.kind === 'audio');
 
       if (camIndex > -1) {
         senders[camIndex].replaceTrack(media.getVideoTracks()[0]);
@@ -385,18 +430,17 @@ module.exports = () => {
 
       connection.dataConnection.send({
         event: 'muteMedia',
-        camMute: this.parent.userSettings.camDisable,
-        micMute: this.parent.userSettings.micDisable
+        camMute: Media.parent.userSettings.camDisable,
+        micMute: Media.parent.userSettings.micDisable
       });
     });
   }
 
   /**
-   * Trigger events for connections by peerjs data connection
+   * Broadcast mute/unmute status to all peer connections via data channels.
    */
-
   Media.sendUserMediaMuteStatusByDataConnection = (videoStatus, audioStatus) => {
-    let connections = this.parent.People.getConnections();
+    const connections = Media.parent.People.getConnections();
 
     connections.forEach(connection => {
       connection.dataConnection.send({
@@ -408,44 +452,45 @@ module.exports = () => {
   }
 
   /**
-   * Terminate joined user peer video audio stream media by type
+   * Terminate or re-grab media tracks on peer connections based on type (video/audio).
+   * Handles releasing streams, restarting camera if needed, and sending updated mute status.
    */
   Media.terminateConnectionsVideoAudioMedia = (type = 'video') => {
-    let connections = this.parent.People.getConnections();
-
-    if (type === 'video' && !this.parent.userSettings.camDisable) {
+    if (type === 'video' && !Media.parent.userSettings.camDisable) {
       Media.release()
       Media.grab(
-        Media.devices,
-        this.parent.userSettings.camDisable,
-        this.parent.userSettings.micDisable
+          Media.devices,
+          Media.parent.userSettings.camDisable,
+          Media.parent.userSettings.micDisable
       ).then(media => {
         Media.streamVideo(null, media);
         Media.resetConnectionsVideoAudioMedia(media);
       })
     } else if (type === 'video') {
-      this.video.srcObject.getVideoTracks().forEach(track => {
+      Media.video.srcObject.getVideoTracks().forEach(track => {
         track.stop();
       });
-      clearInterval(this.interval);
+      clearInterval(Media.interval);
     } else {
-      this.video.srcObject.getAudioTracks().forEach(track => {
-        track.enabled = !this.parent.userSettings.micDisable;
+      Media.video.srcObject.getAudioTracks().forEach(track => {
+        track.enabled = !Media.parent.userSettings.micDisable;
       })
     }
 
-    connections.forEach(connection => {
-      connection.dataConnection.send({
-        event: 'muteMedia',
-        camMute: this.parent.userSettings.camDisable,
-        micMute: this.parent.userSettings.micDisable
-      });
-    });
+    Media.sendUserMediaMuteStatusByDataConnection(
+        Media.parent.userSettings.camDisable,
+        Media.parent.userSettings.micDisable
+    )
   }
 
+  /**
+   * Handle incoming mute status from a peer and update UI accordingly.
+   * @param {Object} data - Contains peerJsId, camMute, micMute status
+   */
+
   Media.setConnectionMediaStatus = (data) => {
-    const connections = this.parent.People.getConnections();
-    let connection = connections.find(x => x.peerJsId === data.peerJsId);
+    const connections = Media.parent.People.getConnections();
+    const connection = connections.find(x => x.peerJsId === data.peerJsId);
 
     if (connection) {
       connection.camMute = data.camMute;

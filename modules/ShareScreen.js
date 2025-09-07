@@ -1,104 +1,102 @@
 
 
 module.exports = () => {
-
-
-    const ShareScreen = {}
+    const ShareScreen = {
+        parent: null,
+    }
 
     ShareScreen.initial = (parent) => {
-        this.parent = parent;
-        this.screenShare = document.getElementById(this.parent.options.screenShareRef);
+        ShareScreen.parent = parent;
 
         return ShareScreen;
     }
 
-
     ShareScreen.startShareScreen = async () => {
-        return new Promise((resolve, reject) => {
-            navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    cursor: 'always'
-                },
+        try {
+            const media = await navigator.mediaDevices.getDisplayMedia({
+                video: { cursor: 'always' },
                 audio: true
-            }).then(async media => {
-                this.parent.userSettings.share = true;
-                this.parent.userSettings.shareMedia = media;
-
-                this.parent.Media.streamVideo(null, media, {
-                    customReference: 'screen-sharing-video',
-                    videoMute: true,
-                    eventListener: false,
-                });
-
-                const token = await ShareScreen.parent.getUserToken();
-                const screenShare = document.getElementById(this.parent.options.screenShareRef);
-                screenShare.style.display = 'block';
-
-                await this.parent.peerJsObject.screenShareConnection(true, token);
-
-                const connections = this.parent.People.getConnections();
-                const peerObject = this.parent.peerJsObject.sharePeer;
-
-                connections.forEach((connection) => {
-                    peerObject.call(connection.peerJsId, media, {
-                        metadata: {
-                            type: 'screen-sharing',
-                            peerJsId: this.parent.peerJsId,
-                            sharePeerJsId: this.parent.peerJsObject.sharePeerJsId
-                        }
-                    });
-                });
-
-                ShareScreen.eventTrigger(true);
-
-                resolve(media);
-            }).catch((error) => {
-                reject(error);
             });
-        });
-    }
 
-    ShareScreen.stopShareScreen = () => {
-        return new Promise(async (resolve, reject) => {
-            const stream = this.parent.userSettings.shareMedia;
-            const connections = this.parent.People.getConnections();
+            media.getVideoTracks()[0].addEventListener('ended', () => {
+                ShareScreen.stopShareScreen();
+            });
+
+            ShareScreen.parent.userSettings.share = true;
+            ShareScreen.parent.userSettings.shareMedia = media;
+
+            ShareScreen.eventTrigger(true);
+
+            ShareScreen.parent.Media.streamVideo(null, media, {
+                customReference: 'screen-sharing-video',
+                videoMute: true,
+                eventListener: false,
+            });
+
+            await ShareScreen.parent.peerJsObject.screenShareConnection(true);
+
+            const connections = ShareScreen.parent.People.getConnections();
+            const peerObject = ShareScreen.parent.peerJsObject.sharePeer;
+
+            connections.forEach((connection) => {
+                peerObject.call(connection.peerJsId, media, {
+                    metadata: {
+                        type: 'screen-sharing',
+                        peerJsId: ShareScreen.parent.peerJsId,
+                        sharePeerJsId: ShareScreen.parent.peerJsObject.sharePeerJsId
+                    }
+                });
+            });
+
+            return media;
+        } catch (error) {
+            console.error('Error starting screen share:', error);
+            throw error;
+        }
+    };
+
+    ShareScreen.stopShareScreen = async () => {
+        if (ShareScreen.parent.userSettings.share === false) {
+            ShareScreen.eventTrigger(false);
+            return;
+        }
+
+        try {
+            const stream = ShareScreen.parent.userSettings.shareMedia;
+            const connections = ShareScreen.parent.People.getConnections();
 
             connections.forEach(connection => {
                 connection.dataConnection.send({
                     event: 'screenShare',
                     status: false,
-                    peerJsId: this.parent.peerJsObject.peerJsId,
+                    peerJsId: ShareScreen.parent.peerJsObject.peerJsId,
                 });
             });
 
             ShareScreen.eventTrigger(false);
 
-            await this.parent.peerJsObject.screenShareConnection(false);
+            await ShareScreen.parent.peerJsObject.screenShareConnection(false);
 
             if (stream) {
-                const tracks = stream?.getTracks();
-
-                tracks.forEach((track) => {
-                    track.stop();
-                });
+                stream.getTracks().forEach(track => track.stop());
             }
 
-            const screenShare = document.getElementById(this.parent.options.screenShareRef);
-            if (screenShare) screenShare.style.display = 'none';
-
-            this.parent.userSettings.share = false;
-            this.parent.userSettings.shareMedia = null;
-        })
+            ShareScreen.parent.userSettings.share = false;
+            ShareScreen.parent.userSettings.shareMedia = null;
+        } catch (error) {
+            console.error('Error stop screen share:', error);
+            throw error;
+        }
     }
 
     ShareScreen.callToNewJoinedUser = (peerjsId) => {
-        const peerObject = this.parent.peerJsObject.sharePeer;
+        const peerObject = ShareScreen.parent.peerJsObject.sharePeer;
 
-        peerObject.call(peerjsId, this.parent.userSettings.shareMedia, {
+        peerObject.call(peerjsId, ShareScreen.parent.userSettings.shareMedia, {
             metadata: {
                 type: 'screen-sharing',
-                peerJsId: this.parent.peerJsId,
-                sharePeerJsId: this.parent.peerJsObject.sharePeerJsId
+                peerJsId: ShareScreen.parent.peerJsId,
+                sharePeerJsId: ShareScreen.parent.peerJsObject.sharePeerJsId
             }
         });
     }
@@ -114,9 +112,7 @@ module.exports = () => {
     }
 
     ShareScreen.closeScreenShare = (data) => {
-        const screenShare = document.getElementById(this.parent.options.screenShareRef);
-        screenShare.style.display = 'none';
-        this.parent.People.setData(data.peerJsId, 'share', false);
+        ShareScreen.parent.People.setData(data.peerJsId, 'share', false);
         ShareScreen.eventTrigger(false);
     }
 

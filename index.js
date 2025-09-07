@@ -31,6 +31,10 @@ class Webrtc
     this.helpers = require('./helpers')({axios, configs}, this)
 
     this.options.micMute = false
+
+    if (configs.debug === true) {
+      console.info('Vidus debug mode is enable.')
+    }
   }
 
   setup({ options, callback, connections, waitingList, userSettings }) {
@@ -114,51 +118,52 @@ class Webrtc
   /**
    * Start grab user media and stream
    */
-  startStreamUserMedia(devices) {
-    return new Promise((resolve, reject) => {
-      try {
-        this.Media.grab(
-            devices,
-            this.userSettings.camDisable,
-            this.userSettings.micDisable,
-        ).then((media) => {
-          this.peerJs.on('call', async (mediaConnection) => {
-            if (mediaConnection.metadata?.type === 'screen-sharing') {
-              this.People.setData(mediaConnection.peer, 'shareMediaConnection', mediaConnection, {
-                customKey: 'sharePeerJsId'
-              });
+  async startStreamUserMedia(devices) {
+    try {
+      const media = await this.Media.grab(
+          devices,
+          this.userSettings.camDisable,
+          this.userSettings.micDisable,
+      );
 
-              mediaConnection.on('stream', peerVideoStream => {
-                this.Media.streamVideo(null, peerVideoStream, {
-                  customReference: 'screen-sharing-video',
-                  videoMute: false,
-                  eventListener: false,
-                });
-
-                let shareScreen = document.getElementById(this.options.screenShareRef);
-                shareScreen.style.display = 'block';
-                this.Media.screenShare.eventTrigger(true);
-              });
-
-              this.People.setData(mediaConnection.metadata?.peerJsId, 'share', true);
-              this.People.setData(mediaConnection.metadata?.peerJsId, 'sharePeerJsId', mediaConnection.metadata?.sharePeerJsId);
-
-              mediaConnection.answer();
-            } else {
-              const dataConnection = this.peerJs.connect(mediaConnection.peer);
-              await this.People.add(mediaConnection, dataConnection);
-              mediaConnection.answer(this.Media.userMedia);
-            }
+      this.peerJs.on('call', async (mediaConnection) => {
+        if (mediaConnection.metadata?.type === 'screen-sharing') {
+          this.People.setData(mediaConnection.peer, 'shareMediaConnection', mediaConnection, {
+            customKey: 'sharePeerJsId'
           });
 
-          this.userSettings.peerJsId = this.peerJsId;
-          this.Media.streamVideo(null, media);
-          resolve(true);
-        });
-      } catch(error) {
-        reject(error);
-      }
-    });
+          mediaConnection.on('stream', peerVideoStream => {
+            this.Media.streamVideo(null, peerVideoStream, {
+              customReference: 'screen-sharing-video',
+              videoMute: false,
+              eventListener: false,
+            });
+
+            let shareScreen = document.getElementById(this.options.screenShareRef);
+            shareScreen.style.display = 'block';
+            this.Media.screenShare.eventTrigger(true);
+          });
+
+          this.People.setData(mediaConnection.metadata?.peerJsId, 'share', true);
+          this.People.setData(mediaConnection.metadata?.peerJsId, 'sharePeerJsId', mediaConnection.metadata?.sharePeerJsId);
+
+          mediaConnection.answer();
+        } else {
+          const dataConnection = this.peerJs.connect(mediaConnection.peer);
+          await this.People.add(mediaConnection, dataConnection);
+          mediaConnection.answer(this.Media.userMedia);
+        }
+      });
+
+      this.userSettings.peerJsId = this.peerJsId;
+      this.Media.streamVideo(null, media);
+
+      return true;
+
+    } catch(error) {
+      console.log(error)
+      throw error;
+    }
   }
 
   /**
