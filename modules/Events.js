@@ -1,136 +1,266 @@
-const configs = require("../configs");
 
 module.exports = () => {
   const Events = {
     parent: null,
     socket: null,
     events: [],
+    eventHandlers: new Map()
   };
 
+  /**
+   * Set up the events manager with parent context
+   * @param {Object} parent - The parent component/context
+   */
   Events.setup = (parent) => {
-    this.parent = parent;
-    this.socket = this.parent.socket;
-    this.events = [];
+    Events.parent = parent;
+    Events.socket = parent.socket;
+    Events.events = [];
   }
 
+  /**
+   * Register all socket event listeners
+   * Sets up handlers for various room and user events
+   */
   Events.listen = () => {
-    this.socket.on('wait-accept-room-join', (data) => {
-      const event = new CustomEvent('onWaitUntilAdmit', {
-        detail: data
-      });
+    if (!Events.socket) {
+      throw new Error('Socket not initialized.');
+    }
 
-      window.dispatchEvent(event);
+    const eventHandlers = {
+      // Room join/waiting list events
+      'wait-accept-room-join': Events._handleWaitAcceptRoomJoin,
+      'admit-user-to-join': Events._handleAdmitUserToJoin,
+      'remove-user-from-waiting-list': Events._handleRemoveUserFromWaitingList,
+      'connect-room-success': Events._handleConnectRoomSuccess,
+      'room-information': Events._handleRoomInformation,
+      // User connection events
+      'user-connected': Events._handleUserConnected,
+      'user-left-room': Events._handleUserLeftRoom,
+      'user-disconnected': Events._handleUserDisconnected,
+      // Room validation events
+      'room-id-invalid': Events._handleRoomIdInvalid,
+      // Action execution events
+      'run-action': Events._handleRunAction,
+      'successfully-run-action': Events._handleSuccessfullyRunAction,
+      'failed-run-action': Events._handleFailedRunAction,
+      // Moderation events
+      'you-are-ban': Events._handleYouAreBan,
+      // Debug events
+      'info-room-data': Events._handleInfoRoomData
+    };
+
+    // Register all event handlers
+    Object.entries(eventHandlers).forEach(([eventName, handler]) => {
+      Events.socket.on(eventName, handler.bind(Events));
+      Events.eventHandlers.set(eventName, handler);
     });
 
-    this.socket.on('admit-user-to-join', (data) => {
-      this.parent.People.addToWaitingList(data);
-
-      const event = new CustomEvent('onRequestToAdmit', {
-        detail: data
-      });
-
-      window.dispatchEvent(event);
-    });
-
-    this.socket.on('remove-user-from-waiting-list', (data) => {
-      this.parent.People.removeFromWaitingListByPeerJsId(data.peerJsId);
-
-      const event = new CustomEvent('onCancelForAdmit', {
-        detail: data
-      });
-
-      window.dispatchEvent(event);
-    });
-
-    this.socket.on('connect-room-success', (data) => {
-      const event = new CustomEvent('onConnectToRoomSuccess', {
-        detail: data
-      });
-
-      window.dispatchEvent(event);
-    });
-
-
-
-    this.socket.on('room-information', (data) => {
-      this.parent.Room.information = data;
-
-      let index = data.users.findIndex(x => x.peerJsId === this.parent.peerJsId);
-
-      if(index > -1 && data.users[index].hasOwnProperty('roomCreator')) {
-        this.parent.userSettings['isCreator'] = data.users[index].roomCreator;
-      }
-    });
-
-    this.socket.on('user-connected', (data) => {
-      this.parent.connectToNewUser(data);
-      this.parent.callbackAction('joinRoom', data, 'user join room.');
-    });
-
-    this.socket.on('user-left-room', (data) => {
-      this.parent.People.remove(data.peerJsId);
-      this.parent.callbackAction('leftRoom', data, 'user left room.');
-    });
-
-    this.socket.on('user-disconnected', (data) => {
-      this.parent.People.remove(data.peerJsId);
-      this.parent.callbackAction('leftRoom', data, 'user disconnected.');
-    });
-
-    this.socket.on('room-id-invalid', (data) => {
-      this.parent.callbackAction('invalidRoom', data, 'room id is invalid!');
-    });
-
-    this.socket.on('run-action', (action) => {
-      this.parent.Room.runRequestedAction(action);
-    });
-
-    this.socket.on('successfully-run-action', (action) => {
-      if (configs.debug) {
-        console.log('Action run successfully!');
-        console.log(action);
-      }
-    });
-
-    this.socket.on('failed-run-action', (action) => {
-      if (configs.debug) {
-        console.log('Action failed to run!');
-        console.log(action);
-      }
-    });
-
-    this.socket.on('you-are-ban', (data) => {
-      this.parent.callbackAction('banInRoom', data, 'you are ban!!!');
-    });
-
-    this.socket.on('info-room-data', (data) => {
-      if (configs.debug) {
-        console.log(data);
-      }
-    });
-  }
-
-
-  Events.addEvent = (type, event, method) => {
-    this.events.push({
-      type: type,
-      event: event,
-      method: method
-    });
-  }
-
-  Events.handler = (type, event, data = null) => {
-    let index = this.events.findIndex(x => x.type === type && x.event === event);
-
-    if (index > -1) {
-      return this.events[index]['method'](data);
-    } else {
-      if (configs.debug) {
-        console.log(type + ' type ' + event + ' event not defined.');
-      }
+    if (Events.parent.configs.debug) {
+      console.log('All event listeners registered');
     }
   }
 
-  return Events;
 
+  /**
+   * Add custom event handler
+   * @param {string} type - Event type
+   * @param {string} event - Event name
+   * @param {Function} method - Event handler method
+   */
+  Events.addEventHandler = (type, event, method) => {
+    if (typeof method !== 'function') {
+      throw new Error('Event handler must be a function');
+    }
+
+    Events.events.push({
+      type,
+      event,
+      method
+    });
+
+    if (Events.parent.configs.debug) {
+      console.log(`Event handler added for ${type}:${event}`);
+    }
+  };
+
+  /**
+   * Execute event handler for specific type and event
+   * @param {string} type - Event type
+   * @param {string} event - Event name
+   * @param {*} data - Event data (optional)
+   * @returns {*} Handler return value or undefined if not found
+   */
+  Events.executeHandler = (type, event, data = null) => {
+    const handler = Events.events.find(x => x.type === type && x.event === event);
+
+    if (handler && typeof handler.method === 'function') {
+      return handler.method(data);
+    }
+
+    if (Events.parent.configs.debug) {
+      console.warn(`Handler not found for ${type} type ${event} event`);
+    }
+
+    return undefined;
+  };
+
+
+  /**
+   * Dispatch custom event to window
+   * @param {string} eventName - Custom event name
+   * @param {Object} detail - Event detail data
+   * @private
+   */
+  Events._dispatchCustomEvent = function(eventName, detail) {
+    const event = new CustomEvent(eventName, { detail });
+    window.dispatchEvent(event);
+  };
+
+
+  /**
+   * Handle waiting for room join acceptance
+   * @param {Object} data - Event data
+   * @private
+   */
+  Events._handleWaitAcceptRoomJoin = function(data) {
+    Events._dispatchCustomEvent('onWaitUntilAdmit', data);
+  };
+
+  /**
+   * Handle user admission to join room
+   * @param {Object} data - User data
+   * @private
+   */
+  Events._handleAdmitUserToJoin = function(data) {
+    Events.parent.People.addToWaitingList(data);
+    Events._dispatchCustomEvent('onRequestToAdmit', data);
+  };
+
+  /**
+   * Handle user removal from waiting list
+   * @param {Object} data - User data with peerJsId
+   * @private
+   */
+  Events._handleRemoveUserFromWaitingList = function(data) {
+    Events.parent.People.removeFromWaitingListByPeerJsId(data.peerJsId);
+    Events._dispatchCustomEvent('onCancelForAdmit', data);
+  };
+
+  /**
+   * Handle successful room connection
+   * @param {Object} data - Connection data
+   * @private
+   */
+  Events._handleConnectRoomSuccess = function(data) {
+    Events._dispatchCustomEvent('onConnectToRoomSuccess', data);
+  };
+
+  /**
+   * Handle room information updates
+   * @param {Object} data - Room information data
+   * @private
+   */
+  Events._handleRoomInformation = function(data) {
+    Events.parent.Room.information = data;
+
+    const user = data.users.find(user =>
+      user.peerJsId === Events.parent.peerJsId
+    );
+
+    if (user && user.hasOwnProperty('roomCreator')) {
+      Events.parent.userSettings.isCreator = user.roomCreator;
+    }
+  };
+
+  /**
+   * Handle new user connection
+   * @param {Object} data - User data
+   * @private
+   */
+  Events._handleUserConnected = function(data) {
+    Events.parent.connectToNewUser(data);
+    Events.parent.callbackAction('joinRoom', data, 'User joined room.');
+  };
+
+  /**
+   * Handle user leaving room
+   * @param {Object} data - User data
+   * @private
+   */
+  Events._handleUserLeftRoom = function(data) {
+    Events.parent.People.remove(data.peerJsId);
+    Events.parent.callbackAction('leftRoom', data, 'User left room.');
+  };
+
+  /**
+   * Handle user disconnection
+   * @param {Object} data - User data
+   * @private
+   */
+  Events._handleUserDisconnected = function(data) {
+    Events.parent.People.remove(data.peerJsId);
+    Events.parent.callbackAction('leftRoom', data, 'User disconnected.');
+  };
+
+  /**
+   * Handle invalid room ID
+   * @param {Object} data - Error data
+   * @private
+   */
+  Events._handleRoomIdInvalid = function(data) {
+    Events.parent.callbackAction('invalidRoom', data, 'Room ID is invalid!');
+  };
+
+  /**
+   * Handle action execution requests
+   * @param {Object} action - Action to execute
+   * @private
+   */
+  Events._handleRunAction = function(action) {
+    Events.parent.Room.runRequestedAction(action);
+  };
+
+  /**
+   * Handle successful action execution
+   * @param {Object} action - Executed action
+   * @private
+   */
+  Events._handleSuccessfullyRunAction = function(action) {
+    if (Events.parent.configs.debug) {
+      console.log('Action executed successfully:', action);
+    }
+  };
+
+  /**
+   * Handle failed action execution
+   * @param {Object} action - Failed action
+   * @private
+   */
+  Events._handleFailedRunAction = function(action) {
+    if (Events.parent.configs.debug) {
+      console.log('Action failed to execute:', action);
+    }
+  };
+
+  /**
+   * Handle user ban event
+   * @param {Object} data - Ban information
+   * @private
+   */
+  Events._handleYouAreBan = function(data) {
+    Events.parent.callbackAction('banInRoom', data, 'You have been banned from the room!');
+  };
+
+  /**
+   * Handle room data info (debug)
+   * @param {Object} data - Room data
+   * @private
+   */
+  Events._handleInfoRoomData = function(data) {
+    if (Events.parent.configs.debug) {
+      console.log('Room data received:', data);
+    }
+  };
+
+  return Events;
 }
