@@ -7,68 +7,90 @@ module.exports = () => {
     actions: [],
   };
 
+  /**
+   * Setup the Room instance
+   * @param {object} parent - Webrtc object
+   * @param {object} options - Configuration options
+   */
   Room.setup = (parent, options) => {
-    this.parent = parent;
-    this.options = options;
-    this.actions = [];
+    Room.parent = parent;
+    Room.options = options;
+    Room.actions = [];
   }
 
   /**
    * User Join to Room
+   * @param {string} roomId - ID of the room to join
+   * @param {object} userData - User data
    */
   Room.join = (roomId, userData) => {
-    let data = Object.assign({ peerJsId: this.parent.peerJsId, }, userData)
-    this.parent.socket.emit('join-room', roomId, data);
+    const data = { peerJsId: Room.parent.peerJsId, ...userData };
+    Room.parent.socket.emit('join-room', roomId, data);
   }
 
   /**
    * User notify to server join room successfully
+   * @param {string} roomId - ID of the room
    */
   Room.notifyJoinSuccess = (roomId) => {
-    this.parent.socket.emit('join-room-successfully', roomId, {
-      peerJsId: this.parent.peerJsId
+    Room.parent.socket.emit('join-room-successfully', roomId, {
+      peerJsId: Room.parent.peerJsId
     });
   }
 
   /**
    * User Left the Room
+   * @param {string} roomId - ID of the room to leave
+   * @param {object} [userData={}] - User data
    */
   Room.left = (roomId, userData = {}) => {
-    this.parent?.People.closeAll();
-    this.parent?.Media.release();
+    const data = { peerJsId: Room.parent.peerJsId, ...userData };
 
-    this.parent?.peerJs.destroy();
-    this.parent?.userSettings.shareMedia?.destroy();
+    try {
+      Room.parent?.People.closeAll();
+      Room.parent?.Media.release();
 
-    let data = Object.assign({ peerJsId: this.parent?.peerJsId, }, userData)
+      Room.parent?.peerJs.destroy();
+      Room.parent?.userSettings.shareMedia?.destroy();
 
-    this.parent?.socket.emit('left-room', roomId, data, (data) => {
-      this.parent.socket.close();
-      this.parent.socket = null;
-    });
+      Room.parent?.socket?.emit('left-room', roomId, data, (data) => {
+        Room.parent.socket.close();
+        Room.parent.socket = null;
+      });
+    } catch(error) {
+      if (parent.configs.debug) {
+        console.log('Error to left the room!', roomId);
+      }
+
+      throw error;
+    }
   }
 
+  /**
+   * Execute a requested action
+   * @param {object} action - The action to execute
+   */
   Room.runRequestedAction = (action) => {
-    let actionName = this.parent.kebabToCamel(action.name);
-    let index = this.actions.findIndex(x => x.name === actionName);
+    const actionName = Room.parent.kebabToCamel(action.name);
+    const index = Room.actions.findIndex(x => x.name === actionName);
 
     try {
       let actionItem;
 
       if(index > -1) {
-        actionItem = this.actions[index].item;
+        actionItem = Room.actions[index].item;
       } else {
-        actionItem = (this.parent.actions[action.name] !== undefined)?
-            this.parent.actions[action.name].script() :
+        actionItem = (Room.parent.actions[action.name] !== undefined)?
+            Room.parent.actions[action.name].script() :
             require('../actions/' + actionName + 'Action')();
 
-        this.actions.push({
+        Room.actions.push({
           name: actionName,
           item: actionItem
         });
       }
 
-      actionItem.run(this.parent, action);
+      actionItem.run(Room.parent, action);
 
       const eventName = actionName.charAt(0).toUpperCase() + actionName.slice(1);
       const event = new CustomEvent('on'+ eventName +'Action', {
@@ -77,8 +99,11 @@ module.exports = () => {
 
       window.dispatchEvent(event);
     } catch (error) {
-      console.log('action run failed!');
-      console.log(error);
+      if (Room.parent.configs.debug) {
+        console.log('Action run failed!', error);
+      }
+
+      throw error;
     }
   }
 

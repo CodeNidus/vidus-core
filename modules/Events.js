@@ -68,12 +68,12 @@ module.exports = () => {
     });
 
     this.socket.on('user-left-room', (data) => {
-      this.parent.People.remove(data);
+      this.parent.People.remove(data.peerJsId);
       this.parent.callbackAction('leftRoom', data, 'user left room.');
     });
 
     this.socket.on('user-disconnected', (data) => {
-      this.parent.People.remove(data);
+      this.parent.People.remove(data.peerJsId);
       this.parent.callbackAction('leftRoom', data, 'user disconnected.');
     });
 
