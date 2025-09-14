@@ -29,7 +29,7 @@ class VideoPeer
       }).on('connection', (connection) => {
         connection.on('data', function(data) {
           data.peerJsId = connection.peer;
-          Events.handler('peerJsData', data.event || 'unknown', data);
+          Events.executeHandler('peerJsData', data.event || 'unknown', data);
         });
       }).on('error', (error) => {
         if (error.type === 'server-error') {

@@ -199,7 +199,7 @@ class Webrtc
    * Define event
    */
   on(type, event, method) {
-    this.Events.addEvent(type, event, method);
+    this.Events.addEventHandler(type, event, method);
   }
 
   async getDevices() {
