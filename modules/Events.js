@@ -51,7 +51,7 @@ module.exports = () => {
 
     // Register all event handlers
     Object.entries(eventHandlers).forEach(([eventName, handler]) => {
-      Events.socket.on(eventName, handler.bind(Events));
+      Events.socket.listen(eventName, handler.bind(Events));
       Events.eventHandlers.set(eventName, handler);
     });
 

@@ -6,7 +6,6 @@ import axios from "./Axios.js"
 class Webrtc
 {
   constructor() {
-    this.socketObject = null
     this.peerJsObject = null
     this.socket = null
     this.peerJs = null
@@ -61,20 +60,20 @@ class Webrtc
     this.configs = Object.assign(this.configs, configs)
     this.overrides.value = overrides
 
-    this.socketObject = new Socket()
-    this.socketObject.initial(configs).then(() => {
-      this.socketObject.initialized = true
-      this.socket = this.socketObject.socket
+    this.socket = new Socket();
 
-      this.Events.setup(this)
-      this.Events.listen()
+    try {
+      this.socket.initialize(configs);
+
+      this.Events.setup(this);
+      this.Events.listen();
 
       // set events
-      this.on('peerJsData', 'muteMedia', this.Media.setConnectionMediaStatus)
-
-    }).catch(err => {
-      console.log('error happened for webrtc initial', err)
-    })
+      this.on('peerJsData', 'muteMedia', this.Media.setConnectionMediaStatus);
+    } catch(error) {
+      console.error('Error initializing WebRTC connection:', error);
+      throw error;
+    }
   }
 
   callbackAction(name, data = {}, consoleText = 'callback function not set.') {
@@ -86,14 +85,17 @@ class Webrtc
   }
 
   /**
-   * Start User Socket Connection
+   * Start user Socket Connection
    */
-  connection(data, status = true) {
-    this.socket.io.opts.query = {
-      "user-token": data.token
-    };
+  async openConnection(token) {
+    return this.socket.setConnection(true, token);
+  }
 
-    return status ? this.socket.open() : this.socket.close;
+  /**
+   * Close user Socket Connection
+   */
+  closeConnection() {
+    return this.socket.setConnection(false);
   }
 
   /**
@@ -236,7 +238,7 @@ class Webrtc
     return /firefox/i.test(navigator.userAgent);
   }
 
-  notify(title, text) {
+  notify(title = null, text = null) {
     console.log(title, ': ', text);
     alert(text);
   }

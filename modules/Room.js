@@ -53,8 +53,8 @@ module.exports = () => {
       Room.parent?.peerJs.destroy();
       Room.parent?.userSettings.shareMedia?.destroy();
 
-      Room.parent?.socket?.emit('left-room', roomId, data, (data) => {
-        Room.parent.socket.close();
+      Room.parent.socket.emit('left-room', roomId, data, (data) => {
+        Room.parent.socket.closeConnection();
         Room.parent.socket = null;
       });
     } catch(error) {
