@@ -6,7 +6,6 @@ import axios from "./Axios.js"
 class Webrtc
 {
   constructor() {
-    this.peerJsObject = null
     this.socket = null
     this.peerJs = null
     this.userSettings = {}
@@ -102,19 +101,18 @@ class Webrtc
    * Start PeerJs Connection
    */
   async initialPeerJs(token) {
-    return new Promise(async (resolve, reject) => {
-      try {
-        await new PeerJs(this.Events, token).then((peerJsObject) => {
-          this.peerJsObject = peerJsObject;
-          this.peerJs = this.peerJsObject.videoPeer;
-          this.peerJsId = this.peerJsObject.getId();
+    try {
+      this.peerJs = await new PeerJs(this, token);
+      this.peerJsId = this.peerJs.getId();
 
-          resolve(this.peerJsId);
-        });
-      } catch(error) {
-        reject(error);
-      }
-    });
+      const setupEvent = new Event('codenidus-vidus-initial-peerjs')
+      document.dispatchEvent(setupEvent)
+
+      return this.peerJsId;
+    } catch(error) {
+      console.error('Failed to initialize PeerJS:', error);
+      throw error;
+    }
   }
 
   /**
@@ -128,42 +126,12 @@ class Webrtc
           this.userSettings.micDisable,
       );
 
-      this.peerJs.on('call', async (mediaConnection) => {
-        if (mediaConnection.metadata?.type === 'screen-sharing') {
-          this.People.setData(mediaConnection.peer, 'shareMediaConnection', mediaConnection, {
-            customKey: 'sharePeerJsId'
-          });
-
-          mediaConnection.on('stream', peerVideoStream => {
-            this.Media.streamVideo(null, peerVideoStream, {
-              customReference: 'screen-sharing-video',
-              videoMute: false,
-              eventListener: false,
-            });
-
-            let shareScreen = document.getElementById(this.options.screenShareRef);
-            shareScreen.style.display = 'block';
-            this.Media.screenShare.eventTrigger(true);
-          });
-
-          this.People.setData(mediaConnection.metadata?.peerJsId, 'share', true);
-          this.People.setData(mediaConnection.metadata?.peerJsId, 'sharePeerJsId', mediaConnection.metadata?.sharePeerJsId);
-
-          mediaConnection.answer();
-        } else {
-          const dataConnection = this.peerJs.connect(mediaConnection.peer);
-          await this.People.add(mediaConnection, dataConnection);
-          mediaConnection.answer(this.Media.userMedia);
-        }
-      });
-
       this.userSettings.peerJsId = this.peerJsId;
       this.Media.streamVideo(null, media);
 
       return true;
-
     } catch(error) {
-      console.log(error)
+      console.error('Failed to start user media stream:', error);
       throw error;
     }
   }
@@ -172,22 +140,31 @@ class Webrtc
    * Connect To New Joined User
    */
   async connectToNewUser(data) {
-    const mediaConnection = this.peerJs.call(data.peerJsId, this.Media.userMedia);
-    const dataConnection = this.peerJs.connect(data.peerJsId);
+    try {
+      const connections = await this.peerJs.establishConnectionWithUser(data);
+      const connectionEvent = new Event('codenidus-vidus-new-connection', data);
+      document.dispatchEvent(connectionEvent);
 
-    await this.People.add(mediaConnection, dataConnection, data);
+      connections.mediaConnection.on('close', () => {
+        if (this.configs.debug) {
+          console.log('Close user...' + data.peerJsId);
+        }
+      });
 
-    // share screen
-    if (this.userSettings.share) {
-      this.Media.screenShare.callToNewJoinedUser(data.peerJsId);
+      connections.mediaConnection.on('error', (error) => {
+        if (this.configs.debug) {
+          console.log('error user... ' + error);
+        }
+      });
+
+      return true;
+    } catch(error) {
+      if (this.configs.debug) {
+        console.error('Failed to connect to new user:', error);
+      }
+
+      throw error;
     }
-
-    mediaConnection.on('close', () => {
-      console.log('Close user...' + data.peerJsId);
-    });
-    mediaConnection.on('error', (error) => {
-      console.log('error user... ' + error);
-    });
   }
 
   /**

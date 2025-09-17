@@ -50,7 +50,7 @@ module.exports = () => {
       Room.parent?.People.closeAll();
       Room.parent?.Media.release();
 
-      Room.parent?.peerJs.destroy();
+      Room.parent?.peerJs.disconnect();
       Room.parent?.userSettings.shareMedia?.destroy();
 
       Room.parent.socket.emit('left-room', roomId, data, (data) => {
