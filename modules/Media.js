@@ -60,7 +60,6 @@ module.exports = () => {
     ctx.restore();
   };
 
-
   const Media = {
     parent: null,
     devices: null,
@@ -122,7 +121,7 @@ module.exports = () => {
       console.error('Media setup failed:', error);
       throw error;
     }
-  }
+  };
 
   /**
    * Request access to user media devices (camera and microphone).
@@ -158,7 +157,6 @@ module.exports = () => {
         audio: audioParams
       });
 
-
       clearInterval(Media.interval);
 
       if (Media.parent.userSettings.camDisable) {
@@ -178,10 +176,11 @@ module.exports = () => {
 
       Media.userMedia = processedMedia;
 
-      Media.screenRecord.mixMicScreenAudioStreams();
+      const event = new CustomEvent('onVidus-grabUserMedia');
+      window.dispatchEvent(event);
 
       if (muteAudio) {
-        Media.muteMicrophone();
+        Media.muteMicrophone(true);
       }
 
       return processedMedia;
@@ -190,7 +189,7 @@ module.exports = () => {
       const message = errorMessage?.message || error.name;
       return message || error.name;
     }
-  }
+  };
 
   /**
    * Start periodic media processing interval according to configured FPS.
@@ -386,22 +385,30 @@ module.exports = () => {
     } else {
       Media.events[section].push(item);
     }
-  }
+  };
 
   /**
-   * Mute user's camera by terminating video tracks on peer connections.
+   * Mute or unmute user's camera
+   * @param {boolean} status
+   * If not provided, toggles the current camera disable state (mutes if currently unmute, unmute if currently muted).
+   * @returns {void}
    */
-  Media.muteCamera = () => {
+  Media.muteCamera = (status = !Media.parent.userSettings.camDisable) => {
+    Media.parent.userSettings.camDisable = status;
     Media.terminateConnectionsVideoAudioMedia('video');
-  }
+  };
 
 
   /**
    * Mute user's microphone by disabling audio tracks on peer connections.
+   * @param {boolean} status
+   * If not provided, toggles the current microphone disable state (mutes if currently unmute, unmute if currently muted).
+   * @returns {void}
    */
-  Media.muteMicrophone = () => {
+  Media.muteMicrophone = (status = !Media.parent.userSettings.micDisable) => {
+    Media.parent.userSettings.micDisable = status;
     Media.terminateConnectionsVideoAudioMedia('audio');
-  }
+  };
 
 
   /**
@@ -434,7 +441,7 @@ module.exports = () => {
         micMute: Media.parent.userSettings.micDisable
       });
     });
-  }
+  };
 
   /**
    * Broadcast mute/unmute status to all peer connections via data channels.
@@ -449,7 +456,7 @@ module.exports = () => {
         micMute: audioStatus
       });
     });
-  }
+  };
 
   /**
    * Terminate or re-grab media tracks on peer connections based on type (video/audio).
@@ -474,14 +481,14 @@ module.exports = () => {
     } else {
       Media.video.srcObject.getAudioTracks().forEach(track => {
         track.enabled = !Media.parent.userSettings.micDisable;
-      })
+      });
     }
 
     Media.sendUserMediaMuteStatusByDataConnection(
         Media.parent.userSettings.camDisable,
         Media.parent.userSettings.micDisable
-    )
-  }
+    );
+  };
 
   /**
    * Handle incoming mute status from a peer and update UI accordingly.
@@ -514,10 +521,10 @@ module.exports = () => {
         }, 500)
       }
     }
-  }
+  };
 
   Media.screenShare = {};
   Media.screenRecord = {};
 
   return Media;
-}
+};

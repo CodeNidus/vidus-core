@@ -29,6 +29,8 @@ class VideoPeer
     try {
       this.videoPeer = this.createPeerJsInstance();
 
+      this.parent.on('peerJsData', 'muteMedia', this.parent.Media.setConnectionMediaStatus);
+
       this.videoPeer.on('open', (id) => {
         this.peerJsId = id;
         this.resetReconnectionState();

@@ -15,7 +15,7 @@ module.exports = () => {
     Events.parent = parent;
     Events.socket = parent.socket;
     Events.events = [];
-  }
+  };
 
   /**
    * Register all socket event listeners
@@ -58,7 +58,7 @@ module.exports = () => {
     if (Events.parent.configs.debug) {
       console.log('All event listeners registered');
     }
-  }
+  };
 
 
   /**
@@ -263,4 +263,4 @@ module.exports = () => {
   };
 
   return Events;
-}
+};

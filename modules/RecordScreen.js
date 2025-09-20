@@ -1,6 +1,9 @@
 
-module.exports = () => {
+/**
+ * RecordScreen module for capturing and processing screen recordings with audio mixing.
+ */
 
+module.exports = () => {
 
     const RecordScreen = {
         parent: null,
@@ -15,17 +18,27 @@ module.exports = () => {
         _screenAudioSource: null,
         _micAudioSource: null,
         _connectionsAudioSource: [],
-    }
+    };
 
+    /**
+     * Initialize the RecordScreen module
+     * @param {Object} parent - Parent module instance
+     * @returns {Object} RecordScreen instance
+     */
     RecordScreen.initial = (parent) => {
-        RecordScreen.parent = parent
-        RecordScreen.recorder = null
-        RecordScreen.initializeFFmpeg()
-        RecordScreen.listenToEvents()
+        RecordScreen.parent = parent;
+        RecordScreen.recorder = null;
+        RecordScreen.initializeFFmpeg();
+        RecordScreen.listenToEvents();
 
-        return RecordScreen
-    }
+        parent.on('peerJsData', 'recordScreen', RecordScreen.setStatus);
 
+        return RecordScreen;
+    };
+
+    /**
+     * Initialize FFmpeg instance
+     */
     RecordScreen.initializeFFmpeg = async () => {
         if (!RecordScreen.ffmpeg) {
             const ffmpegModule = await import('@ffmpeg/ffmpeg');
@@ -39,12 +52,24 @@ module.exports = () => {
         }
     }
 
+    /**
+     * Set up event listeners
+     */
     RecordScreen.listenToEvents = () => {
         window.addEventListener('onVidus-connections-resetMediaStream', function (event) {
             RecordScreen.mixMicScreenAudioStreams();
         });
+
+        window.addEventListener('onVidus-grabUserMedia', function (event) {
+            RecordScreen.mixMicScreenAudioStreams();
+        });
     }
 
+    /**
+     * Start screen recording
+     * @async
+     * @returns {Promise<MediaStream>} Media stream being recorded
+     */
     RecordScreen.startRecord = async () => {
         if (RecordScreen.isRecording) return;
 
@@ -92,7 +117,7 @@ module.exports = () => {
 
             RecordScreen.recorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
-                    RecordScreen.recordedChunks.push(event.data)
+                    RecordScreen.recordedChunks.push(event.data);
                 }
             };
 
@@ -116,6 +141,9 @@ module.exports = () => {
         }
     };
 
+    /**
+     * Stop screen recording
+     */
     RecordScreen.stopRecord = async () => {
         if (!RecordScreen.isRecording) return;
 
@@ -126,6 +154,9 @@ module.exports = () => {
         }
     }
 
+    /**
+     * Mix microphone and screen audio streams with connection audio
+     */
     RecordScreen.mixMicScreenAudioStreams = async () => {
         if (!RecordScreen.isRecording) return;
 
@@ -160,6 +191,10 @@ module.exports = () => {
         ]);
     }
 
+    /**
+     * Process recorded video with FFmpeg
+     * @returns {Promise<Blob>} Processed video blob
+     */
     RecordScreen.processRecordedVideo = async () => {
         const recordedBlob = new Blob(RecordScreen.recordedChunks, { type: 'video/webm' });
 
@@ -186,7 +221,12 @@ module.exports = () => {
         return new Blob([data.buffer], { type: 'video/mp4' });
     };
 
-
+    /**
+     * Save recorded data as a file download
+     * @function
+     * @param {Blob} blobData - Video blob data to save
+     * @param {string} fileName - Name for the downloaded file
+     */
     RecordScreen.saveData = (function () {
         const link = document.createElement("a");
 
@@ -201,7 +241,9 @@ module.exports = () => {
         };
     }());
 
-
+    /**
+     * Clean up resources and reset state
+     */
     RecordScreen.cleanup = () => {
         RecordScreen.recordedChunks = [];
         RecordScreen.mediaStream = null;
@@ -219,17 +261,31 @@ module.exports = () => {
     };
 
 
-
+    /**
+     * Handle new user joining (placeholder implementation)
+     * @param {string} peerjsId - PeerJS connection ID
+     * TODO: complete this section. Show meet recording status
+     */
     RecordScreen.newJoinedUser = (peerjsId) => {
-
+        //
     }
 
+    /**
+     * Check if screen recording is active
+     * @returns {boolean} True if recording is active
+     */
     RecordScreen.isRecordingScreen = () => {
         const connections = RecordScreen.parent.People.getConnections()
         const index = connections.findIndex(x => x.isCreator === true && x.record === true)
         return index > -1
     }
 
+    /**
+     * Set recording status for a connection
+     * @param {Object} data - Status data object
+     * @param {string} data.peerJsId - PeerJS connection ID
+     * @param {boolean} data.record - Recording status
+     */
     RecordScreen.setStatus = (data) => {
         const connections = RecordScreen.parent.People.getConnections();
         let connection = connections.find(x => x.peerJsId === data.peerJsId);
@@ -241,6 +297,11 @@ module.exports = () => {
         }
     }
 
+    /**
+     * Trigger recording status events
+     * @param {boolean} status - Recording status
+     * @param {boolean} sendToConnections - Whether to send to connections
+     */
     RecordScreen.eventTrigger = (status = true, sendToConnections = false) => {
         const connections = RecordScreen.parent.People.getConnections()
         const event = new CustomEvent('onScreenRecordModule', {

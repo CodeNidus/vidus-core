@@ -18,6 +18,8 @@ module.exports = () => {
         ShareScreen.parent = parent;
         ShareScreen.setupListener();
 
+        parent.on('peerJsData', 'screenShare', ShareScreen.closeScreenShare);
+
         return ShareScreen;
     }
 
