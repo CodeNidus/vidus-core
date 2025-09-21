@@ -16,7 +16,7 @@ module.exports = () => {
       parent.People.remove(peerJsId);
       parent.notify('User ban', user.name + ' have been banned from this meeting by a moderator.');
     }
-  }
+  };
 
   return action;
-}
+};

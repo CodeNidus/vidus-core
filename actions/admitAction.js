@@ -12,7 +12,7 @@ module.exports = () => {
         parent.callbackAction('exitConference', {}, 'Exit Conference!');
       }
     }
-  }
+  };
 
   return action;
-}
+};

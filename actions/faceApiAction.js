@@ -8,7 +8,7 @@ module.exports = () => {
     });
 
     window.dispatchEvent(event);
-  }
+  };
 
   return action;
-}
+};
