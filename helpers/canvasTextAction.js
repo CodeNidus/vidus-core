@@ -1,66 +1,78 @@
+/**
+ * @module CanvasTextHelper
+ * @description A helper module for managing canvas text operations including storage,
+ * retrieval, and API interactions for text content.
+ */
+
+/**
+ * @typedef {Object} TextFileItem
+ * @property {string} file - The file identifier
+ * @property {boolean} loading - Loading state indicator
+ */
 
 module.exports = (options) => {
 
-    const Helper = {}
+    const Helper = {
+        storageName: 'codenidus.vidus.canvasTextAction',
+    };
 
     Helper.setup = () => {
-        this.axios = options.axios.getInstance()
-        this.token = options.token
-        this.configs = options.configs
-        this.storageName = 'codenidus.vidus.canvasTextAction'
+        return Helper;
+    };
 
-        return Helper
-    }
+    /**
+     * Fetches text content from the server using a specific key/URL
+     * @param {string} url - The key or URL identifier for the text content
+     * @returns {Promise<any>} The text content from the server
+     * @throws {Error} If the request fails
+     */
+    Helper.copyText = async (url) => {
+        try {
+            return await options.authenticatedRequest('GET', `/api/canvas-text-get?key=${url}`);
+        } catch (error) {
+            throw error;
+        }
+    };
 
-    Helper.copyText = (url) => {
-        return new Promise((resolve, reject) => {
-            this.token.getToken((token) => {
-                this.axios.get('/api/canvas-text-get?key=' + url, {
-                    headers: {
-                        'user-token': token
-                    }
-                }).then(response => {
-                    resolve(response.data)
-                }).catch((error) => {
-                    reject(error)
-                })
-            })
-        })
-    }
+    /**
+     * Retrieves text files from a specific room/bucket on the server
+     * @param {string} roomId - The identifier of the room/bucket to fetch files from
+     * @returns {Promise<TextFileItem[]>} Array of text file items with loading states
+     * @throws {Error} If the request fails
+     */
+    Helper.getTextFromBucket = async (roomId) => {
+        try {
+            const response = await options.authenticatedRequest('GET', `/api/canvas-text-list?roomId=${roomId}`);
+            return response.files.map(item => {
+                return {
+                    file: item,
+                    loading: false,
+                }
+            });
+        } catch (error) {
+            throw error;
+        }
+    };
 
-    Helper.getTextFromBucket = (roomId) => {
-        return new Promise((resolve, reject) => {
-            this.token.getToken((token) => {
-                this.axios.get('/api/canvas-text-list?roomId=' + roomId, {
-                    headers: {
-                        'user-token': token
-                    }
-                }).then(response => {
-                    let files = response.data.files.map(item => {
-                        return {
-                            file: item,
-                            loading: false,
-                        }
-                    })
-
-                    resolve(files)
-                }).catch(error => {
-                    reject(error)
-                })
-            })
-        })
-    }
-
+    /**
+     * Retrieves text history from browser's local storage
+     * @returns {Array} Array of stored text history items, or empty array if none exists
+     */
     Helper.getTextFromStorage = () =>  {
-        let store = JSON.parse(localStorage.getItem(this.storageName))
+        const store = JSON.parse(localStorage.getItem(Helper.storageName));
         return (!store) ? [] : store.history;
-    }
+    };
 
+    /**
+     * Stores text items in browser's local storage
+     * @param {Array} items - Array of text items to store
+     * @returns {void}
+     */
     Helper.storeTextInStorage = (items) =>  {
-        localStorage.setItem(this.storageName, JSON.stringify({
+        localStorage.setItem(Helper.storageName, JSON.stringify({
             history: items
-        }))
-    }
+        }));
+    };
 
-    return Helper.setup()
-}
+    return Helper.setup();
+};

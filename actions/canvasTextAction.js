@@ -1,102 +1,137 @@
 module.exports = () => {
 
-  const action = {};
+  const action = {
+    x: 0,
+    y: 0,
+    counter: 0,
+    parent: null,
+    wasRunning: false,
+    text: null,
+    lineCount: 4,
+    lineHeight: 0,
+    fontRatio: 0.05,
+    fontName: 'Roboto',
+    fontSize: 16,
+    fontColor: "rgba(15, 23, 42, 1)",
+    textHeight: 0,
+    startHeight: 60,
+    intervalTime: 15,
+    canvas: null,
+    debugBar: null,
+    context: null,
+    canvasText: null,
+    canvasTextCard: null,
+  };
 
+  action.initialize = () => {
+    return action;
+  };
 
-  action.setup = (text) => {
-    return new Promise((resolve) => {
-      if (this.initial) {
-        resolve(true)
-        return
+  /**
+   * Set up the canvas and prepare for animation
+   * @param {string} text - The text to display
+   * @returns {Promise<boolean>} True if setup was successful
+   * @throws {Error} If setup fails
+   */
+  action.setup = async (text) => {
+    try {
+      action.canvas = document.getElementById('canvas-text-action-scroll-section');
+      action.debugBar = document.getElementById('canvas-text-action-debug-bar');
+      action.canvasText = document.getElementById('canvas-text');
+      action.canvasTextCard = document.getElementById("canvas-text-action-card");
+
+      if (!action.canvas || !action.canvasTextCard) {
+        console.error('Required DOM elements not found');
       }
 
-      this.lineCount = 4;
-      this.initial = true;
-      this.fontRatio = 0.05;
-      this.fontName = 'Roboto';
-      this.fontColor = "rgba(15, 23, 42, 1)"
-      this.intervalTime = 15;
+      if (action.wasRunning) return true;
 
-      this.x = 0;
-      this.y = 0;
-      this.text = text.toString();
-      this.textHeight = 0;
-      this.startHeight = 60;
-      this.lineHeight = 0;
-      this.canvasTextCard = document.getElementById("canvas-text-action-card");
-      this.canvasText = document.getElementById('canvas-text');
-      this.canvas = document.getElementById('canvas-text-scroll-section');
+      action.eventTrigger(true);
 
-      this.canvasTextCard.style.display = 'block';
-      this.canvasText.style.display = 'block';
-      this.canvas.style.display = 'block';
+      action.canvas.width = action.canvasTextCard.offsetWidth;
+      action.canvas.height = action.canvasTextCard.offsetHeight;
+      action.maxWidth = action.canvas.width;
 
-      this.canvas.width = this.canvasTextCard.offsetWidth;
-      this.canvas.height = this.canvasTextCard.offsetHeight;
-      this.maxWidth = this.canvas.width;
+      action.x = 0;
+      action.y = 0;
+      action.counter = 0;
+      action.text = text.toString();
+      action.context = action.canvas.getContext('2d');
+      action.fontSize = action.fontRatio * action.canvas.width;
+      action.lineHeight = parseInt(action.canvas.height / action.lineCount);
+      action.context.font = (action.fontSize / 16).toString() + 'em ' + action.fontName;
+      action.context.fillStyle = action.fontColor;
+      action.context.scale = 1;
+      action.startHeight = action.canvas.height + 30;
+      action.wasRunning = true;
 
-      this.context = this.canvas.getContext('2d');
+      return true;
+    } catch(error) {
+      console.error('Error setting up canvas text animation:', error);
+      throw error;
+    }
+  };
 
-      this.fontSize = this.fontRatio * this.canvas.width;
-      //this.lineHeight = parseInt(((this.canvas.height - (this.lineCount * this.fontSize)) / (this.lineCount - 1)) + this.fontSize);
-      this.lineHeight = parseInt(this.canvas.height / this.lineCount);
-      this.context.font = (this.fontSize / 16).toString() + 'em ' + this.fontName;
-      this.context.fillStyle = this.fontColor;
-      this.context.scale = 1;
-      this.startHeight = this.canvas.height + 30;
+  /**
+   * Start or stop the animation
+   * @param {Object} parent - Parent component
+   * @param {Object} data - Configuration data
+   */
+  action.run = async (parent, data) => {
+    action.parent = parent;
 
-      resolve(true)
-    })
-  }
-
-  action.run = (parent, data) => {
     if (data.attributes.play) {
-      action.setup(data.attributes.message).then(() => {
-        if(data.attributes.pause) {
-          clearInterval(this.interval);
-        } else {
-          this.interval = setInterval(action.renderText, 1000 / this.intervalTime);
-        }
-      });
-    } else {
-      this.initial = false;
-      this.canvasTextCard.style.display = 'none';
-      this.canvas.style.display = 'none';
-      this.canvasText.style.display = 'none';
-      clearInterval(this.interval);
-    }
-  }
+      await action.setup(data.attributes.message);
 
-  action.renderText = () => {
-      // debug section
-    /*
-      this.counter++;
-      this.debug.innerHTML = 'Interval: ' + this.counter.toString() + ' | TextHeight: ' + this.textHeight.toString() +
-        ' | LineHeight: ' + this.lineHeight.toString() + ' | font: ' + this.fontSize.toString() +
-        ' | width: ' + this.canvas.width.toString() + ' | height: ' + this.canvas.height.toString();
-      //
-    */
-    //this.canvas.width = this.canvasTextCard.offsetWidth;
-
-    if(this.textHeight == 0) {
-      this.y = this.startHeight;
-    } else {
-      this.y -= 1;
-
-      if (this.y < (this.textHeight * -1)) {
-        this.y = this.startHeight;
+      if(data.attributes.pause) {
+        clearInterval(action.interval);
+      } else {
+        action.interval = setInterval(action.renderText, 1000 / action.intervalTime);
       }
+    } else {
+      action.wasRunning = false;
+      action.eventTrigger(false);
+      clearInterval(action.interval);
+    }
+  };
+
+  /**
+   * Render the text on the canvas (animation frame)
+   */
+  action.renderText = () => {
+    if (action.parent.configs.debug) {
+      action.counter++;
+      action.debugBar.innerHTML = 'Interval: ' + action.counter.toString() +
+        ' | TextHeight: ' + action.textHeight.toString() +
+        ' | LineHeight: ' + action.lineHeight.toString() +
+        ' | font: ' + action.fontSize.toString() +
+        ' | width: ' + action.canvas.width.toString() +
+        ' | height: ' + action.canvas.height.toString();
     }
 
-    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    action.wrapText(this.text, this.x, this.y);
-  }
+    //action.canvas.width = action.canvasTextCard.offsetWidth;
 
+    action.y = (action.textHeight == 0)? action.startHeight : action.y - 1;
+
+    if (action.y < (action.textHeight * -1)) {
+      action.y = action.startHeight;
+    }
+
+    action.context.clearRect(0, 0, action.canvas.width, action.canvas.height);
+    action.wrapText(action.text, action.x, action.y);
+  };
+
+  /**
+   * Wrap and render text on the canvas
+   * @param {string} text - The text to render
+   * @param {number} x - X position to start rendering
+   * @param {number} y - Y position to start rendering
+   */
   action.wrapText = (text, x, y) => {
     let line = '';
-    let lines = text.split(/\r?\n/);
+    const lines = text.split(/\r?\n/);
 
-    this.textHeight = 0;
+    action.textHeight = 0;
 
     for (let i = 0; i < lines.length; i++) {
       let words = lines[i].split(' ');
@@ -104,31 +139,55 @@ module.exports = () => {
       for(let j = 0; j < words.length; j++) {
         let testLine = line + words[j] + ' ';
 
-        if (this.context.measureText(testLine).width > this.maxWidth && j > 0) {
-          this.context.fillText(line, x, y);
+        if (action.context.measureText(testLine).width > action.maxWidth && j > 0) {
+          action.context.fillText(line, x, y);
 
           line = words[j] + ' ';
-          y += this.lineHeight;
-          this.textHeight += this.lineHeight;
+          y += action.lineHeight;
+          action.textHeight += action.lineHeight;
         } else {
           line = testLine;
         }
       }
 
-      this.context.fillText(line, x, y);
+      action.context.fillText(line, x, y);
       line = '';
 
-      y += this.lineHeight;
-      this.textHeight += this.lineHeight;
+      y += action.lineHeight;
+      action.textHeight += action.lineHeight;
     }
 
 
-    if (this.textHeight == 0) {
-      this.textHeight = this.lineHeight;
+    if (action.textHeight == 0) {
+      action.textHeight = action.lineHeight;
     }
 
-    this.context.fillText(line, x, y);
-  }
+  //  action.context.fillText(line, x, y);
+  };
 
-  return action;
-}
+  /**
+   * Trigger status event
+   * @param {boolean} status - The current status of the animation
+   */
+  action.eventTrigger = (status = true) => {
+    const event = new CustomEvent('onCanvasTextActionStatus', {
+      detail: {
+        status: status
+      }
+    });
+
+    window.dispatchEvent(event);
+  };
+
+  /**
+   * Clean up resources and stop animation
+   */
+  action.destroy = () => {
+    clearInterval(action.interval);
+    action.interval = null;
+    action.wasRunning = false;
+    action.eventTrigger(false);
+  };
+
+  return action.initialize();
+};
