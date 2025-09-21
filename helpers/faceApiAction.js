@@ -1,16 +1,22 @@
+/**
+ * @typedef {Object} BoundingBox
+ * @property {number} xMin - The normalized x-coordinate of the top-left corner (0 to 1).
+ * @property {number} yMin - The normalized y-coordinate of the top-left corner (0 to 1).
+ * @property {number} width - The normalized width of the bounding box (0 to 1).
+ * @property {number} height - The normalized height of the bounding box (0 to 1).
+ */
 
+/**
+ * @module FaceOverlayHelper
+ */
 module.exports = (options) => {
 
-    const Helper = {}
-
-    Helper.setup = () => {
-        this.axios = options.axios.getInstance()
-        this.token = options.token
-        this.configs = options.configs
-        this.media = options.media
-
-        this.faceApi = {
-            drawItems: ['hat', 'medal'],
+    const Helper = {
+        imagesItems: [
+            { type: 'hat', path: 'https://codenidus.com/videoconference/pirate-hat.webp' },
+            { type: 'medal', path: 'https://codenidus.com/videoconference/medal.png' },
+        ],
+        faceApi: {
             endTime: {
                 hat: null,
                 medal: null,
@@ -19,131 +25,197 @@ module.exports = (options) => {
                 hat: null,
                 medal: null,
             }
-        }
-
-        this.images = {
+        },
+        images: {
             medal: null,
             hat: null,
             faceTest: null,
         }
+    };
 
-        Helper.setImages()
+    Helper.setup = () => {
+        Helper.setImages();
 
         document.addEventListener("codenidus-vidus-setup", (event) => {
             Helper.initialCallbacks()
         });
 
-        return Helper
-    }
+        return Helper;
+    };
 
+    /**
+     * Registers face detector callbacks
+     */
     Helper.initialCallbacks = () => {
-        this.faceApi.callbacks.hat = this.media.registerFaceDetectorCallback('hat', Helper.draw);
-        this.faceApi.callbacks.medal = this.media.registerFaceDetectorCallback('medal', Helper.draw);
-    }
+        try {
+            Helper.faceApi.callbacks = {
+                hat: options.media.registerFaceDetectorCallback('hat', Helper.draw),
+                medal: options.media.registerFaceDetectorCallback('medal', Helper.draw)
+            }
+        } catch(error) {
+            if (options.config.debug) {
+                console.error('Failed to initialize callbacks:', error);
+            }
 
+            throw error;
+        }
+    };
+
+    /**
+     * Loads and prepares images for overlay drawing
+     */
     Helper.setImages = () => {
-        this.images.hat = new Image
-        this.images.hat.crossOrigin = 'anonymous'
-        this.images.hat.src = 'https://codenidus.com/videoconference/pirate-hat.webp'
+        Helper.imagesItems.forEach(item => {
+            Helper.images[item.type] = new Image;
+            Helper.images[item.type].crossOrigin = 'anonymous';
+            Helper.images[item.type].src = item.path;
+            Helper.images[item.type].onerror = () => console.error(`Failed to load ${item.type} image`);
+        });
+    };
 
-        this.images.medal = new Image
-        this.images.medal.crossOrigin = 'anonymous'
-        this.images.medal.src = 'https://codenidus.com/videoconference/medal.png'
-    }
-
+    /**
+     * Draws the specified overlay type on the canvas based on face position
+     * @param {BoundingBox} lastPosition - The last detected face position data
+     * @param {HTMLCanvasElement} canvas - The canvas element to draw on
+     * @param {string} type - The type of overlay to draw ('hat' or 'medal')
+     */
     Helper.draw = (lastPosition, canvas, type) => {
-        if (!Helper.checkCallbackTimeOut(type)) return
+        try {
+            if (!Helper.checkCallbackTimeOut(type)) return;
+            if (!Helper.images[type]) return;
 
-        const ctx = canvas.getContext("2d")
-        const methodName = 'calculate' + type.charAt(0).toUpperCase() + type.slice(1) + 'Position'
-        const typePosition = Helper.calculatePositions[methodName](lastPosition)
+            const ctx = canvas.getContext("2d");
+            const methodName = 'calculate' + type.charAt(0).toUpperCase() + type.slice(1) + 'Position';
 
-        ctx.drawImage(this.images[type],
-            typePosition.posX,
-            typePosition.posY,
-            typePosition.width,
-            typePosition.height)
-    }
+            if (!Helper.calculatePositions[methodName]) {
+                console.error(`Position calculation method not found: ${methodName}`);
+                return;
+            }
 
+            const typePosition = Helper.calculatePositions[methodName](lastPosition);
+
+            ctx.drawImage(Helper.images[type],
+              typePosition.posX,
+              typePosition.posY,
+              typePosition.width,
+              typePosition.height);
+
+            ctx.restore();
+        } catch(error) {
+            if (options.configs.debug) {
+                console.error(`Error drawing ${type}:`, error);
+            }
+        }
+    };
+
+    /**
+     * Sets a timer for the specified overlay type
+     * @param {CustomEvent} e - Event containing type and timeout details
+     */
     Helper.setTimer = (e) => {
-        this.faceApi.endTime[e.detail.type] = new Date()
-        this.faceApi.endTime[e.detail.type].setTime(
-            this.faceApi.endTime[e.detail.type].getTime() + parseInt(e.detail.timeout) * 1000
-        )
+        const { type, timeout } = e.detail;
 
-        this.faceApi.callbacks[e.detail.type].enable = true
-    }
+        Helper.faceApi.endTime[type] = new Date();
+        Helper.faceApi.endTime[type].setTime(
+          Helper.faceApi.endTime[type].getTime() + parseInt(timeout) * 1000
+        );
 
+        Helper.faceApi.callbacks[type].enable = true;
+    };
 
+    /**
+     * Checks if the callback for a specific type is still within its active time window
+     * @param {string} type - The type of overlay to check
+     * @returns {boolean} True if the callback should execute, false otherwise
+     */
     Helper.checkCallbackTimeOut = async (type) => {
-        let currentTime = Date.now()
+        let currentTime = Date.now();
 
-        if (!this.faceApi.callbacks[type].enable) {
-            return false
+        if (!Helper.faceApi.callbacks[type].enable) {
+            return false;
         }
 
-        if (currentTime > this.faceApi.endTime[type]) {
-            this.faceApi.endTime[type] = null
-            this.faceApi.callbacks[type].enable = false
-            return false
+        if (currentTime > Helper.faceApi.endTime[type]) {
+            Helper.faceApi.endTime[type] = null;
+            Helper.faceApi.callbacks[type].enable = false;
+            return false;
         }
 
-        return true
-    }
+        return true;
+    };
 
 
+    /**
+     * @namespace calculatePositions
+     * @description Collection of methods for calculating overlay positions
+     */
     Helper.calculatePositions = {
         calculateHatPosition: (data) => {
-            let width = data.width * 2.6;
+            const width = data.width * 2.6;
+            const aspectRatio = Helper.images.hat.naturalHeight / Helper.images.hat.naturalWidth;
 
             return {
                 width: width,
-                height: this.images.hat.naturalHeight / (this.images.hat.naturalWidth / width),
+                height: width * aspectRatio,
                 posX: data.xMin - ((width - data.width) / 2),
                 posY: data.yMin - ((width - data.width) / 1.22),
             };
         },
         calculateMedalPosition: (data) => {
-            let width = data.width / 1.8;
+            const width = data.width / 1.8;
+            const aspectRatio = Helper.images.medal.naturalHeight / Helper.images.medal.naturalWidth;
 
             return {
                 width: width,
-                height: this.images.medal.naturalHeight / (this.images.medal.naturalWidth / width),
+                height: width * aspectRatio,
                 posX: data.xMin + (data.xMin / 1.32),
                 posY: data.yMin + data.height + (data.height / 10)
             };
         }
-    }
+    };
 
-    Helper.getImagesFromBucket = (roomId) => {
-        return new Promise((resolve, reject) => {
-            this.token.getToken((token) => {
-                this.axios.get('/api/bucket/images-list?roomId=' + roomId, {
-                    headers: {
-                        'user-token': token
-                    }
-                }).then(response => {
-                    let files = response.data.files
+    /**
+     * Retrieves custom images from the bucket for a specific room
+     * @param {string} roomId - The ID of the room to fetch images for
+     * @returns {Promise<boolean>} Resolves to true when operation completes
+     */
+    Helper.getImagesFromBucket = async (roomId) => {
+        try {
+            const response = await options.authenticatedRequest('GET', '/api/bucket/images-list?roomId=' + roomId);
 
-                    let hatIndex = Helper.searchInArray('hat.png', files)
-                    if (hatIndex > -1) {
-                        this.images.hat.src = 'https://' + this.configs.aws.bucket_name + '.s3.amazonaws.com/' + files[hatIndex]
-                    }
-                }).finally(() => {
-                    resolve(true)
-                })
-            })
-        }).catch(error => {
-            return error
-        })
-    }
+            const files = response.files;
+            const amazonBucketBaseUrl = `https://${options.configs.aws.bucket_name}.s3.amazonaws.com/`;
 
-    Helper.searchInArray = (text, strArray) => {
-        for (var j=0; j<strArray.length; j++) {
-            if (strArray[j].match(text)) return j;
+            Helper.imagesItems.forEach(item => {
+                const itemIndex = Helper.searchInArray(item.type + '.png', files);
+
+                if (itemIndex > -1) {
+                    Helper.images[item.type].src = amazonBucketBaseUrl + files[itemIndex];
+                }
+
+            });
+
+            return true;
+        } catch(error) {
+            throw error;
         }
+    };
+
+    /**
+     * Searches for a specific text pattern in an array of strings
+     * @param {string} text - The text to search for
+     * @param {string[]} strArray - The array of strings to search in
+     * @returns {number} The index of the matching element, or -1 if not found
+     */
+    Helper.searchInArray = (text, strArray) => {
+        if (!strArray || !Array.isArray(strArray)) return -1;
+
+        for (let i=0; i < strArray.length; i++) {
+            if (strArray[i].match(text)) return i;
+        }
+
         return -1;
-    }
+    };
 
     return Helper.setup()
-}
+};

@@ -1,49 +1,34 @@
 
 module.exports = (options) => {
 
-    const Helper = {}
+    const Helper = {};
 
     Helper.setup = () => {
-        this.axios = options.axios.getInstance()
-        this.token = options.token
-        this.configs = options.configs
-
         return Helper
-    }
+    };
 
-    Helper.createRoom = (data) => {
-        return new Promise((resolve, reject) => {
-            this.token.getToken((token) => {
+    /**
+     * Create a new room
+     * @param {Object} data - Room creation data
+     * @returns {Promise<Object>} Created room data
+     * @throws {Error} If room creation fails
+     */
+    Helper.createRoom = async (data) => {
+        if (!data || typeof data !== 'object') {
+            throw new Error('Invalid room data provided');
+        }
 
-                this.axios.post('/api/rooms', data, {
-                    headers: {
-                        'user-token': token
-                    }
-                }).then(response => {
-                    resolve(response.data)
-                }, error => {
-                    reject(error.response.data)
-                })
-            })
-        })
-    }
+        return await options.authenticatedRequest('POST', '/api/rooms', data);
+    };
 
-    Helper.getRoomsList = () => {
-        return new Promise((resolve, reject) => {
-            this.token.getToken((token) => {
+    /**
+     * Retrieve list of rooms for the authenticated user
+     * @returns {Promise<Array>} Array of room objects
+     * @throws {Error} If fetching rooms fails
+     */
+    Helper.getRoomsList = async () => {
+        return await options.authenticatedRequest('GET', '/api/rooms/user');
+    };
 
-                this.axios.get('/api/rooms/user', {
-                    headers: {
-                        'user-token': token
-                    }
-                }).then(response => {
-                    resolve(response.data)
-                }, error => {
-                    reject(error.response.data)
-                })
-            })
-        })
-    }
-
-    return Helper.setup()
-}
+    return Helper.setup();
+};
