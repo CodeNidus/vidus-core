@@ -1,110 +1,179 @@
 
+/**
+ * @typedef {Object} TokenData
+ * @property {string} username - The username associated with the token
+ * @property {string} token - The authentication token
+ * @property {number} expired - Token expiration timestamp
+ */
+
 module.exports = (options) => {
 
-    const Helper = {}
-
-    Helper.setup = () => {
-        this.axios = options.axios
-        this.configs = options.configs
-        this.overrides = options.overrides
-        this.storageName = 'codenidus.vidus.user.token'
-
-        this.webrtcToken = {
+    const Helper = {
+        webrtcToken: {
             username: null,
             token: null,
-            roomId: null,
             expired: null,
-        }
+        },
+        storageName: 'codenidus.vidus.user.token',
+    };
 
-        const data = JSON.parse(localStorage.getItem(this.storageName))
-
-        if (!!data) {
-            this.webrtcToken = data
-        }
-
-        return Helper
-    }
-
-    Helper.getToken = async (next = (token) => {return token}, error = (e) => console.log(e)) => {
+    /**
+     * Initializes the helper instance with provided options
+     */
+    Helper.setup = () => {
         try {
-            if (!this.webrtcToken || !this.webrtcToken.token || this.webrtcToken.expired < Date.now()) {
-                await Helper.reGenerateToken()
+            const data = localStorage.getItem(Helper.storageName);
+
+            if (data) {
+                Helper.webrtcToken = JSON.parse(data);
+            }
+        } catch (error) {
+            console.warn('Failed to parse stored token:', error.message);
+        }
+
+        return Helper;
+    };
+
+    /**
+     * Retrieves a valid token, generating a new one if necessary
+     * @param {Function} [next] - Callback function to receive the token
+     * @param {Function} [error] - Error handler callback
+     * @returns {Promise<string|void>} The token if no callback provided
+     */
+    Helper.getToken = async (next, error) => {
+        try {
+            if (!Helper.webrtcToken.token || Helper.webrtcToken.expired < Date.now()) {
+                await Helper.reGenerateToken();
             }
 
-            return next(this.webrtcToken.token)
-        } catch (e) {
-            error(e)
-        }
-    }
+            if (typeof next === 'function') {
+                return next(Helper.webrtcToken.token);
+            }
 
+            return Helper.webrtcToken.token;
+        } catch (e) {
+            if (options.configs.debug) {
+                console.error('Failed to get webrtc token:', e);
+            }
+
+            if (typeof error === 'function') {
+                return error(e);
+            }
+
+            throw e;
+        }
+    };
+
+    /**
+     * Forces generation of a new token regardless of current token state
+     * @param {Function} [next] - Callback function to receive the token
+     * @param {Function} [error] - Error handler callback
+     * @returns {Promise<string|void>} The new token if no callback provided
+     */
     Helper.forceGenerateToken = async (next, error = (e) => console.log(e)) => {
         try {
-            await Helper.reGenerateToken()
-            next(this.webrtcToken.token);
+            await Helper.reGenerateToken();
+
+            if (typeof next === 'function') {
+                return next(Helper.webrtcToken.token);
+            }
+
+            return Helper.webrtcToken.token;
         } catch (e) {
-            error(e)
+            if (options.configs.debug) {
+                console.error('Failed to force generate token:', e);
+            }
+
+            if (typeof error === 'function') {
+                return error(e);
+            }
+
+            throw e;
         }
-    }
+    };
 
-    Helper.reGenerateToken = () => {
-        return new Promise(async (resolve, reject) => {
-            const apiClient = this.axios.getInstance(this.configs.authorization.url)
-            const token = localStorage.getItem(this.configs.authorization.token) || '';
+    /**
+     * Regenerates the token by making an API request
+     * @private
+     * @returns {Promise<boolean>} True if token was successfully regenerated
+     * @throws {Error} If token regeneration fails
+     */
+    Helper.reGenerateToken = async () => {
+        try {
+            const requestOverride = options.overrides?.value?.helper?.userToken?.request || null;
+            const baseUrl = requestOverride? '/' : options.configs.authorization.url;
+            const apiClient = options.axios.getInstance(baseUrl);
 
-            if(token === '') {
-                console.log('It seems that your authorization token is not stored in local storage.')
-            }
+            if (requestOverride) {
+                const response = await requestOverride(apiClient, options.configs);
+                await Helper.setToken(response);
 
-            // check if axios not override then run next line else run override method
-            const requestOverride = this.overrides.value?.helper?.userToken?.request || null
+                return true;
+            } else {
+                const token = localStorage.getItem(options.configs.authorization.token) || '';
 
-            try {
-                if (requestOverride) {
-                    const response = await requestOverride(apiClient, this.configs, token)
-                    await Helper.setToken(response)
-                    resolve(true)
-                } else {
-                    apiClient({
-                        method: 'get',
-                        url: this.configs.api_token_url,
-                        headers: {
-                            Authorization: `Bearer ${token}`
-                        }
-                    }).then(async response => {
-                        await Helper.setToken(response.data.data)
-                        resolve(true)
-                    }, error => {
-                        if(error.code === 12) {
-                            reject('Please ensure your url configs for video conference package.')
-                        }
-                        reject('Error happened! ' + error.response.data.message)
-                    })
+                if(token === '') {
+                    console.log('It seems that your authorization token is not stored in local storage.')
                 }
-            } catch (e) {
-                reject(e)
-            }
-        });
-    }
 
+                apiClient({
+                    method: 'get',
+                    url: options.configs.api_token_url,
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }).then(async response => {
+                    await Helper.setToken(response.data.data)
+
+                    return true;
+                }, error => {
+                    throw error;
+                });
+            }
+        } catch(error) {
+            throw error;
+        }
+    };
+
+    /**
+     * Removes the stored token from memory and localStorage
+     */
     Helper.removeToken = () => {
-        this.webrtcToken = null
-        localStorage.removeItem(this.storageName)
-    }
+        Helper.webrtcToken = {
+            username: null,
+            token: null,
+            expired: null,
+        };
 
-    Helper.setToken = (tokenData) => {
-        return new Promise((resolve) => {
-            this.webrtcToken = {
-                username: tokenData.username,
-                token: tokenData.token,
-                roomId: tokenData.room_id,
-                expired: Date.now() + (12 * 60 * 60 * 1000)
-            }
+        try {
+            localStorage.removeItem(Helper.storageName);
+        } catch (error) {
+            console.warn('Failed to remove token from storage:', error.message);
+        }
+    };
 
-            localStorage.setItem(this.storageName, JSON.stringify(this.webrtcToken))
+    /**
+     * Sets a new token and stores it in localStorage
+     * @param {TokenData} tokenData - The token data to store
+     * @returns {Promise<boolean>} True if token was successfully set
+     */
+    Helper.setToken = async (tokenData) => {
+        Helper.webrtcToken = {
+            username: tokenData.username,
+            token: tokenData.token,
+            expired: Date.now() + (12 * 60 * 60 * 1000)
+        }
 
-            resolve(true)
-        })
-    }
+        localStorage.setItem(this.storageName, JSON.stringify(this.webrtcToken))
 
-    return Helper.setup()
-}
+        try {
+            localStorage.setItem(Helper.storageName, JSON.stringify(Helper.webrtcToken));
+        } catch (error) {
+            console.warn('Failed to store token in localStorage:', error.message);
+        }
+
+        return true;
+    };
+
+    return Helper.setup();
+};
