@@ -12,13 +12,13 @@ module.exports = () => {
     };
 
     return await FaceDetection.createDetector(model, detectorConfig);
-  }
+  };
 
   face.detect = async (faceDetector, canvas) => {
     faceDetector.positions = await faceDetector.detector.estimateFaces(canvas, {
       flipHorizontal: false
     });
-  }
+  };
 
   return face;
-}
+};

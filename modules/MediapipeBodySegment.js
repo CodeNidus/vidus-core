@@ -13,7 +13,7 @@ module.exports = () => {
     }
 
     return await BodySegmentation.createSegmenter(model, segmenterConfig);
-  }
+  };
 
   body.blur = async (bodySegmenter, canvas) => {
     const tempCanvas = document.createElement('canvas');
@@ -40,7 +40,7 @@ module.exports = () => {
       edgeBlurAmount,
       false,
     );
-  }
+  };
 
   return body;
-}
+};

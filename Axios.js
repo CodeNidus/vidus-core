@@ -1,7 +1,7 @@
 import axios from 'axios'
 import configs from './configs'
 
-const apiClient = {}
+const apiClient = {};
 
 apiClient.getInstance = (baseUrl = configs.webrtc_url, customConfigs = {}) => {
   const client = axios.create(Object.assign({
@@ -12,19 +12,19 @@ apiClient.getInstance = (baseUrl = configs.webrtc_url, customConfigs = {}) => {
       "Accept": "application/json",
       "Content-type": "application/json",
     }, configs.axios.headers),
-  }, customConfigs))
+  }, customConfigs));
 
   client.interceptors.request.use(async (request) => {
     // modify request before send
     return request
-  })
+  });
 
   client.defaults.validateStatus = (status) => {
     // validate response status
     return status >= 200 && status < 300;
-  }
+  };
 
-  return client
-}
+  return client;
+};
 
-export default apiClient
+export default apiClient;

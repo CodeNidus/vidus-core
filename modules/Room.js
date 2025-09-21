@@ -16,7 +16,7 @@ module.exports = () => {
     Room.parent = parent;
     Room.options = options;
     Room.actions = [];
-  }
+  };
 
   /**
    * User Join to Room
@@ -26,7 +26,7 @@ module.exports = () => {
   Room.join = (roomId, userData) => {
     const data = { peerJsId: Room.parent.peerJsId, ...userData };
     Room.parent.socket.emit('join-room', roomId, data);
-  }
+  };
 
   /**
    * User notify to server join room successfully
@@ -36,7 +36,7 @@ module.exports = () => {
     Room.parent.socket.emit('join-room-successfully', roomId, {
       peerJsId: Room.parent.peerJsId
     });
-  }
+  };
 
   /**
    * User Left the Room
@@ -64,7 +64,7 @@ module.exports = () => {
 
       throw error;
     }
-  }
+  };
 
   /**
    * Execute a requested action
@@ -105,7 +105,7 @@ module.exports = () => {
 
       throw error;
     }
-  }
+  };
 
   return Room;
-}
+};

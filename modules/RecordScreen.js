@@ -50,20 +50,20 @@ module.exports = () => {
             await RecordScreen.ffmpeg.load();
             RecordScreen.isFFmpegLoaded = true;
         }
-    }
+    };
 
     /**
      * Set up event listeners
      */
     RecordScreen.listenToEvents = () => {
-        window.addEventListener('onVidus-connections-resetMediaStream', function (event) {
-            RecordScreen.mixMicScreenAudioStreams();
+        window.addEventListener('onVidus-connections-resetMediaStream', async function (event) {
+            await RecordScreen.mixMicScreenAudioStreams();
         });
 
-        window.addEventListener('onVidus-grabUserMedia', function (event) {
-            RecordScreen.mixMicScreenAudioStreams();
+        window.addEventListener('onVidus-grabUserMedia', async function (event) {
+            await RecordScreen.mixMicScreenAudioStreams();
         });
-    }
+    };
 
     /**
      * Start screen recording
@@ -152,7 +152,7 @@ module.exports = () => {
         if (RecordScreen.mediaStream) {
             RecordScreen.mediaStream.getTracks().forEach(track => track.stop());
         }
-    }
+    };
 
     /**
      * Mix microphone and screen audio streams with connection audio
@@ -172,7 +172,7 @@ module.exports = () => {
         // Mix with connected users audio streams
         RecordScreen._connectionsAudioSource.forEach(item => {
             item.disconnect();
-        })
+        });
 
         RecordScreen._connectionsAudioSource = [];
 
@@ -182,14 +182,14 @@ module.exports = () => {
             const connectionAudio = RecordScreen._audioContext.createMediaStreamSource(item.stream);
             RecordScreen._connectionsAudioSource.push(connectionAudio);
             connectionAudio.connect(RecordScreen._destination);
-        })
+        });
 
         // Update the mixed mediaStream audio tracks:
         RecordScreen.mediaStream = new MediaStream([
             ...RecordScreen.mediaStream.getVideoTracks(),
             ...RecordScreen._destination.stream.getAudioTracks()
         ]);
-    }
+    };
 
     /**
      * Process recorded video with FFmpeg
@@ -268,7 +268,7 @@ module.exports = () => {
      */
     RecordScreen.newJoinedUser = (peerjsId) => {
         //
-    }
+    };
 
     /**
      * Check if screen recording is active
@@ -278,7 +278,7 @@ module.exports = () => {
         const connections = RecordScreen.parent.People.getConnections()
         const index = connections.findIndex(x => x.isCreator === true && x.record === true)
         return index > -1
-    }
+    };
 
     /**
      * Set recording status for a connection
@@ -295,7 +295,7 @@ module.exports = () => {
 
             RecordScreen.eventTrigger(data.record)
         }
-    }
+    };
 
     /**
      * Trigger recording status events
@@ -320,7 +320,7 @@ module.exports = () => {
         }
 
         window.dispatchEvent(event);
-    }
+    };
 
     return RecordScreen;
-}
+};

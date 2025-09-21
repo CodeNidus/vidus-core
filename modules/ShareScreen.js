@@ -7,7 +7,7 @@ module.exports = () => {
         sharePeerJsId: null,
         initializeShareScreen: false,
         connectionDelay: 10000,
-    }
+    };
 
     /**
      * Initialize Screen Share module
@@ -21,7 +21,7 @@ module.exports = () => {
         parent.on('peerJsData', 'screenShare', ShareScreen.closeScreenShare);
 
         return ShareScreen;
-    }
+    };
 
     /**
      * Starts screen sharing by capturing display media and establishing connections
@@ -109,7 +109,7 @@ module.exports = () => {
             console.error('Error stop screen share:', error);
             throw error;
         }
-    }
+    };
 
     /**
      * Establishes or terminates a screen sharing connection
@@ -124,7 +124,7 @@ module.exports = () => {
                 ShareScreen.terminateScreenSharePeer(resolve);
             }
         });
-    }
+    };
 
     /**
      * Initializes a screen sharing peer connection
@@ -164,7 +164,7 @@ module.exports = () => {
         } catch (error) {
             reject(new Error(`Failed to initialize screen share: ${error.message}`));
         }
-    }
+    };
 
     /**
      * Terminates the screen sharing connection
@@ -180,7 +180,7 @@ module.exports = () => {
         ShareScreen.sharePeerJsId = null;
         ShareScreen.initializeShareScreen = false;
         resolve(true);
-    }
+    };
 
     /**
      * Sets up peer call listeners for incoming screen sharing connections
@@ -211,7 +211,7 @@ module.exports = () => {
 
             mediaConnection.answer();
         });
-    }
+    };
 
     /**
      * Sets up event listeners for screen sharing module
@@ -221,7 +221,7 @@ module.exports = () => {
         document.addEventListener('codenidus-vidus-initial-peerjs', ShareScreen.setupPeerCall);
         document.addEventListener('codenidus-vidus-new-connection', ShareScreen.callToNewJoinedUser);
         window.addEventListener('beforeunload', ShareScreen.eventsListenersRemove);
-    }
+    };
 
     /**
      * Removes all event listeners when the page is unloading
@@ -230,7 +230,7 @@ module.exports = () => {
     ShareScreen.eventsListenersRemove = () => {
         document.removeEventListener('codenidus-vidus-initial-peerjs', ShareScreen.setupPeerCall);
         document.removeEventListener('codenidus-vidus-new-connection', ShareScreen.callToNewJoinedUser);
-    }
+    };
 
     /**
      * Initiates a screen sharing call to a newly joined user
@@ -250,7 +250,7 @@ module.exports = () => {
                 sharePeerJsId: ShareScreen.sharePeerJsId
             }
         });
-    }
+    };
 
     /**
      * Triggers a custom event for screen sharing status changes
@@ -265,7 +265,7 @@ module.exports = () => {
         });
 
         window.dispatchEvent(event);
-    }
+    };
 
     /**
      * Closes screen sharing for a specific peer and triggers status update
@@ -275,7 +275,7 @@ module.exports = () => {
     ShareScreen.closeScreenShare = (data) => {
         ShareScreen.parent.People.setData(data.peerJsId, 'share', false);
         ShareScreen.eventTrigger(false);
-    }
+    };
 
     /**
      * Gets the screen sharing peer connection ID
@@ -283,7 +283,7 @@ module.exports = () => {
      */
     ShareScreen.getShareId = () => {
         return ShareScreen.sharePeerJsId;
-    }
+    };
 
     return ShareScreen;
-}
+};

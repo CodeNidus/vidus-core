@@ -5,7 +5,7 @@ module.exports = () => {
     connections: null,
     waitingList: null,
     options: null,
-  }
+  };
 
   /**
    * Initializes the People manager with required references and data.
@@ -19,7 +19,7 @@ module.exports = () => {
     People.connections = connections;
     People.waitingList = waitingList;
     People.options = options;
-  }
+  };
 
   /**
    * Adds a new user connection to the People module
@@ -88,7 +88,7 @@ module.exports = () => {
 
       throw error;
     }
-  }
+  };
 
   /**
    * Removes a peer connection by peerJsId and cleans up resources.
@@ -115,7 +115,7 @@ module.exports = () => {
 
       throw error;
     }
-  }
+  };
 
   /**
    * Forcefully closes all active connections and resets state.
@@ -134,7 +134,7 @@ module.exports = () => {
     } catch (error) {
       console.error('Error close connections:', error);
     }
-  }
+  };
 
   /**
    * Returns the current list of connections.
@@ -142,7 +142,7 @@ module.exports = () => {
    */
   People.getConnections = () => {
     return People.connections;
-  }
+  };
 
   /**
    * Adds a user to the waiting list (e.g., for moderated rooms).
@@ -151,7 +151,7 @@ module.exports = () => {
   People.addToWaitingList = (data) => {
     if (People.waitingList.some(x => x.peerJsId === data.peerJsId)) return;
     People.waitingList.push(data);
-  }
+  };
 
   /**
    * Removes a user from the waiting list by array index.
@@ -161,7 +161,7 @@ module.exports = () => {
     if(index > -1) {
       People.waitingList.splice(index, 1);
     }
-  }
+  };
 
   /**
    * Removes a user from the waiting list by peerJsId.
@@ -171,7 +171,7 @@ module.exports = () => {
     const index = People.waitingList.findIndex(x => x.peerJsId === peerJsId);
 
     People.removeFromWaitingList(index);
-  }
+  };
 
   /**
    * Updates a property of a connection identified by peerJsId.
@@ -186,7 +186,7 @@ module.exports = () => {
     if (index > -1) {
       People.connections[index][key] = value;
     }
-  }
+  };
 
   /**
    * Finds the first connection matching a key-value pair.
@@ -196,7 +196,7 @@ module.exports = () => {
    */
   People.findOne = (key, value) => {
     return People.connections.find(x => x[key] === value) || null;
-  }
+  };
 
   /**
    * Finds all connections matching a key-value pair.
@@ -206,7 +206,7 @@ module.exports = () => {
    */
   People.find = (key, value) => {
     return People.connections.filter(item => item[key] === value);
-  }
+  };
 
   return People;
-}
+};
