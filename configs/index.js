@@ -23,5 +23,10 @@ export default {
   },
   aws: {
     bucket_name: 'video-conference-bucket-a',
+  },
+  development: {
+    canvas: {
+      enable: false,
+    }
   }
 }

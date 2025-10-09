@@ -258,13 +258,11 @@ module.exports = () => {
      * @private
      */
     ShareScreen.eventTrigger = (status = true) => {
-        const event = new CustomEvent('onScreenShareModule', {
+        ShareScreen.parent.emit('onScreenShareModule', {
             detail: {
                 status: status
             }
         });
-
-        window.dispatchEvent(event);
     };
 
     /**

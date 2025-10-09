@@ -156,11 +156,9 @@ class VideoPeer
    * @param {Error} error - The error object containing failure details
    */
   dispatchPeerConnectionFailedEvent(error) {
-    const event = new CustomEvent('onPeerJsConnectionFailed', {
+    this.parent.emit('onPeerJsConnectionFailed', {
       detail: { message: error.message }
     });
-
-    window.dispatchEvent(event);
   }
 
   /**

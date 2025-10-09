@@ -2,18 +2,17 @@ module.exports = () => {
 
   const action = {};
 
-  action.run = (parent, data) => {
-    const peerJsId = data.attributes.ban.peerJsId;
+  action.run = (api, data) => {
+    const peerJsId = api.getPeerJsId();
 
-    if (peerJsId === parent.peerJsId) {
-      parent.notify('User ban', 'You have been banned from this meeting by a moderator.');
-      parent.Room.left(parent.Room.information.id);
-      parent.callbackAction('exitConference', {}, 'Exit Conference!');
+    if (data.attributes.ban.peerJsId === peerJsId) {
+      api.notify('User ban', 'You have been banned from this meeting by a moderator.');
+      api.leftRoom();
+      api.emit('onExitConference');
     } else {
-      const connections = parent.People.getConnections();
-      const user = connections.find(x => x.peerJsId === peerJsId);
+      const connections = api.getConnections();
+      const user = connections.find(x => x.peerJsId === data.attributes.ban.peerJsId);
 
-      parent.People.remove(peerJsId);
       parent.notify('User ban', user.name + ' have been banned from this meeting by a moderator.');
     }
   };

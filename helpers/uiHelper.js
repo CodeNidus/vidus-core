@@ -11,12 +11,15 @@
 
 module.exports = (options) => {
 
-    const Helper = {};
+    const Helper = {
+        options: options,
+    };
 
     /**
      * Initializes the UI helper
      */
     Helper.setup = () => {
+        Helper.options = options;
         return Helper
     };
 
@@ -26,7 +29,7 @@ module.exports = (options) => {
      * @return {videoElementDetails} video element details object
      */
     Helper.getCurrentUserVideo = () => {
-        const reference = this.options.localVideoRef;
+        const reference = Helper.options.localVideoRef;
         const videoItem = document.getElementById(reference);
 
         const item = {
@@ -52,5 +55,5 @@ module.exports = (options) => {
         return item;
     };
 
-    return Helper.setup();
+    return Helper.setup(options);
 };

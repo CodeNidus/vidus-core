@@ -2,6 +2,7 @@ import Socket from "./Socket.js"
 import PeerJs from "./PeerJs.js"
 import configs from "./configs"
 import axios from "./Axios.js"
+import development from "./modules/Development";
 
 class Webrtc
 {
@@ -11,13 +12,15 @@ class Webrtc
     this.userSettings = {};
     this.initialized = false;
     this.peerJsId = null;
-    this.callback = {};
     this.configs = configs;
     this.axios = axios;
     this.actions = {};
     this.themes = {};
     this.options = {
       micMute: false,
+    };
+    this.develop = {
+      methods: {},
     };
     this.overrides = {
       value: null
@@ -30,23 +33,24 @@ class Webrtc
 
     this.helpers = require('./helpers')({axios, configs}, this);
 
+    const development = require('./modules/Development');
+    this.develop.methods = development(this);
+
     if (configs.debug === true) {
       console.info('Vidus debug mode is enabled.');
     }
   }
 
   /**
-   * Configure the WebRTC instance with options, callbacks, and user settings
+   * Configure the WebRTC instance
    * @param {Object} params - Configuration parameters
    * @param {Object} params.options - Various options for the WebRTC instance
-   * @param {Object} params.callback - Collection of callback functions
    * @param {Array} params.connections - Initial connections list
    * @param {Array} params.waitingList - Initial waiting list
    * @param {Object} params.userSettings - User-specific settings
    */
-  setup({ options, callback, connections, waitingList, userSettings }) {
+  setup({ options, connections, waitingList, userSettings }) {
     this.options = Object.assign(this.options, options);
-    this.callback = Object.assign(this.callback, callback);
     this.userSettings = userSettings;
 
     // Initialize modules with configuration
@@ -88,20 +92,6 @@ class Webrtc
     } catch(error) {
       console.error('Error initializing WebRTC connection:', error);
       throw error;
-    }
-  }
-
-  /**
-   * Execute a callback function if it exists
-   * @param {string} name - Name of the callback function
-   * @param {Object} data - Data to pass to the callback
-   * @param {string} consoleText - Message to log if callback is not defined
-   */
-  callbackAction(name, data = {}, consoleText = 'callback function not set.') {
-    if (this.callback[name]) {
-      this.callback[name](data);
-    } else if (this.configs.debug) {
-      console.log(consoleText);
     }
   }
 
@@ -316,6 +306,27 @@ class Webrtc
     return this.helpers.global.getRoomsList()
   }
 
+  /**
+   * Trigger custom event
+   * @param {string} type
+   * @param {object} data (optional)
+   * @private
+   */
+  emit(type, data = {}) {
+    if (typeof data !== 'object' || !data?.detail) {
+      data.detail = { ...data}
+    }
+
+    const event = new CustomEvent(type, data);
+    window.dispatchEvent(event);
+  }
+
+  /**
+   * Get development shortcuts methods
+   */
+  getDevTools() {
+    return this.develop.methods;
+  }
 }
 
 const webrtc = new Webrtc()

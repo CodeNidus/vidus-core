@@ -2,9 +2,9 @@ module.exports = () => {
 
   const action = {};
 
-  action.run = (parent, data) => {
-    parent.Media.muteMicrophone(true);
-    parent.notify('Mute Microphone', 'Your microphone mute by moderator.');
+  action.run = (api, data) => {
+    api.muteMicrophone();
+    api.notify('Muted Microphone', 'Your microphone muted by moderator.');
   };
 
   return action;

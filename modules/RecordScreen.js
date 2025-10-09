@@ -304,7 +304,8 @@ module.exports = () => {
      */
     RecordScreen.eventTrigger = (status = true, sendToConnections = false) => {
         const connections = RecordScreen.parent.People.getConnections()
-        const event = new CustomEvent('onScreenRecordModule', {
+
+        RecordScreen.parent.emit('onScreenRecordModule', {
             detail: {
                 status: status
             }
@@ -318,8 +319,6 @@ module.exports = () => {
                 });
             });
         }
-
-        window.dispatchEvent(event);
     };
 
     return RecordScreen;

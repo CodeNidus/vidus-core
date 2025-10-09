@@ -40,11 +40,13 @@ module.exports = () => {
 
   /**
    * User Left the Room
-   * @param {string} roomId - ID of the room to leave
    * @param {object} [userData={}] - User data
    */
-  Room.left = (roomId, userData = {}) => {
+  Room.left = (userData = {}) => {
+    const roomId = Room.information?.id;
     const data = { peerJsId: Room.parent.peerJsId, ...userData };
+
+    if (!roomId) return;
 
     try {
       Room.parent?.People.closeAll();
@@ -80,8 +82,8 @@ module.exports = () => {
       if(index > -1) {
         actionItem = Room.actions[index].item;
       } else {
-        actionItem = (Room.parent.actions[action.name] !== undefined)?
-            Room.parent.actions[action.name].script() :
+        actionItem = (Room.parent.actions[actionName] !== undefined)?
+            Room.parent.actions[actionName].script() :
             require('../actions/' + actionName + 'Action')();
 
         Room.actions.push({
@@ -90,14 +92,13 @@ module.exports = () => {
         });
       }
 
-      actionItem.run(Room.parent, action);
+      actionItem.run(Room.parent.getDevTools(), action);
 
       const eventName = actionName.charAt(0).toUpperCase() + actionName.slice(1);
-      const event = new CustomEvent('on'+ eventName +'Action', {
+
+      Room.parent.emit('on'+ eventName +'Action', {
         detail: action.attributes
       });
-
-      window.dispatchEvent(event);
     } catch (error) {
       if (Room.parent.configs.debug) {
         console.log('Action run failed!', error);

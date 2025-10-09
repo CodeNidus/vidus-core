@@ -106,24 +106,12 @@ module.exports = () => {
 
 
   /**
-   * Dispatch custom event to window
-   * @param {string} eventName - Custom event name
-   * @param {Object} detail - Event detail data
-   * @private
-   */
-  Events._dispatchCustomEvent = function(eventName, detail) {
-    const event = new CustomEvent(eventName, { detail });
-    window.dispatchEvent(event);
-  };
-
-
-  /**
    * Handle waiting for room join acceptance
    * @param {Object} data - Event data
    * @private
    */
   Events._handleWaitAcceptRoomJoin = function(data) {
-    Events._dispatchCustomEvent('onWaitUntilAdmit', data);
+    Events.parent.emit('onWaitUntilAdmit', data);
   };
 
   /**
@@ -133,7 +121,7 @@ module.exports = () => {
    */
   Events._handleAdmitUserToJoin = function(data) {
     Events.parent.People.addToWaitingList(data);
-    Events._dispatchCustomEvent('onRequestToAdmit', data);
+    Events.parent.emit('onRequestToAdmit', data);
   };
 
   /**
@@ -143,7 +131,7 @@ module.exports = () => {
    */
   Events._handleRemoveUserFromWaitingList = function(data) {
     Events.parent.People.removeFromWaitingListByPeerJsId(data.peerJsId);
-    Events._dispatchCustomEvent('onCancelForAdmit', data);
+    Events.parent.emit('onCancelForAdmit', data);
   };
 
   /**
@@ -152,7 +140,7 @@ module.exports = () => {
    * @private
    */
   Events._handleConnectRoomSuccess = function(data) {
-    Events._dispatchCustomEvent('onConnectToRoomSuccess', data);
+    Events.parent.emit('onConnectToRoomSuccess', data);
   };
 
   /**
@@ -179,7 +167,7 @@ module.exports = () => {
    */
   Events._handleUserConnected = function(data) {
     Events.parent.connectToNewUser(data);
-    Events.parent.callbackAction('joinRoom', data, 'User joined room.');
+    Events.parent.emit('onUserJoined', data);
   };
 
   /**
@@ -189,7 +177,7 @@ module.exports = () => {
    */
   Events._handleUserLeftRoom = function(data) {
     Events.parent.People.remove(data.peerJsId);
-    Events.parent.callbackAction('leftRoom', data, 'User left room.');
+    Events.parent.emit('onLeftRoom', data);
   };
 
   /**
@@ -199,7 +187,7 @@ module.exports = () => {
    */
   Events._handleUserDisconnected = function(data) {
     Events.parent.People.remove(data.peerJsId);
-    Events.parent.callbackAction('leftRoom', data, 'User disconnected.');
+    Events.parent.emit('onLeftRoom', data);
   };
 
   /**
@@ -208,7 +196,7 @@ module.exports = () => {
    * @private
    */
   Events._handleRoomIdInvalid = function(data) {
-    Events.parent.callbackAction('invalidRoom', data, 'Room ID is invalid!');
+    Events.parent.emit('onInvalidRoom', data);
   };
 
   /**
@@ -248,7 +236,7 @@ module.exports = () => {
    * @private
    */
   Events._handleYouAreBan = function(data) {
-    Events.parent.callbackAction('banInRoom', data, 'You have been banned from the room!');
+    Events.parent.emit('onBanFromRoom', data);
   };
 
   /**

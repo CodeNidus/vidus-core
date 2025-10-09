@@ -32,6 +32,7 @@ module.exports = ({axios, configs}, self) => {
             canvasTextAction: require('./canvasTextAction')(Helper),
             faceApiAction: require('./faceApiAction')(Helper),
             ui: require('./uiHelper')(Helper),
+            authenticatedRequest: Helper.authenticatedRequest,
         }
     };
 

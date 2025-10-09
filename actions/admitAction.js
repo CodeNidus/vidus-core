@@ -2,14 +2,18 @@ module.exports = () => {
 
   const action = {};
 
-  action.run = (parent, data) => {
-    if (data.attributes.peerJsId === parent.peerJsId) {
+  action.run = (api, data) => {
+    const socket = api.getSocket();
+    const peerJsId = api.getPeerJsId();
+
+    if (data.attributes.peerJsId === peerJsId) {
       if (data.attributes.status && data.attributes.access) {
-        parent.socket.emit('join-room-from-waiting-list', data.attributes.roomId, {
+        socket.emit('join-room-from-waiting-list', data.attributes.roomId, {
           access: data.attributes.access
         });
       } else {
-        parent.callbackAction('exitConference', {}, 'Exit Conference!');
+        api.notify('Request Declined', 'Your request to join this room was not approved.');
+        api.emit('onExitConference');
       }
     }
   };

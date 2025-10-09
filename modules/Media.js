@@ -175,9 +175,7 @@ module.exports = () => {
       processedMedia.addTrack(audioTrack);
 
       Media.userMedia = processedMedia;
-
-      const event = new CustomEvent('onVidus-grabUserMedia');
-      window.dispatchEvent(event);
+      Media.parent.emit('onVidus-grabUserMedia');
 
       if (muteAudio) {
         Media.muteMicrophone(true);
@@ -504,14 +502,11 @@ module.exports = () => {
       connection.micMute = data.micMute;
       Media.streamVideo(data.peerJsId, connection.mediaConnection.remoteStream);
       Media.streamAudio(data.peerJsId, connection.mediaConnection.remoteStream);
-
-      const event = new CustomEvent('onVidus-connections-resetMediaStream', {
+      Media.parent.emit('onVidus-connections-resetMediaStream', {
         detail: {
           peerJsId: data.peerJsId
         }
       });
-
-      window.dispatchEvent(event);
 
       if(connection.camMute) {
         connection.camCover = true;

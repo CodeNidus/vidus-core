@@ -2,12 +2,10 @@ module.exports = () => {
 
   const action = {};
 
-  action.run = (parent, data) => {
-    const event = new CustomEvent('onFaceApiAction-DetectAndDraw', {
+  action.run = (api, data) => {
+    api.emit('onFaceApiAction-DetectAndDraw', {
       detail: data.attributes
     });
-
-    window.dispatchEvent(event);
   };
 
   return action;

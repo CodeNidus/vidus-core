@@ -2,9 +2,9 @@ module.exports = () => {
 
   const action = {};
 
-  action.run = (parent, data) => {
-    parent.Room.left();
-    parent.callbackAction('exitConference', {}, 'Exit Conference!');
+  action.run = (api, data) => {
+    api.leftRoom();
+    api.emit('onExitConference');
   };
 
   return action;
