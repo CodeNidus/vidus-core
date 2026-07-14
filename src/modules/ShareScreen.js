@@ -1,6 +1,6 @@
 
 
-module.exports = () => {
+export default () => {
     const ShareScreen = {
         parent: null,
         sharePeer: null,

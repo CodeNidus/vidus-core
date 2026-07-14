@@ -1,6 +1,6 @@
-const FaceDetection = require('@tensorflow-models/face-detection');
+import * as FaceDetection from '@tensorflow-models/face-detection';
 
-module.exports = () => {
+export default () => {
   const face = {};
 
   face.initial = async (configs) => {

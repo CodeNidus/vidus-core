@@ -1,5 +1,6 @@
-module.exports = () => {
+import Actions from "../actions/index.js";
 
+export default () => {
   const Room = {
     parent: null,
     information: null,
@@ -73,7 +74,7 @@ module.exports = () => {
 
       return true;
     } catch(error) {
-      if (parent.configs.debug) {
+      if (Room.parent.configs.debug) {
         console.log('Error to left the room!', roomId);
       }
 
@@ -111,9 +112,17 @@ module.exports = () => {
       if(index > -1) {
         actionItem = Room.actions[index].item;
       } else {
-        actionItem = (Room.parent.actions[actionName]?.script)?
-            Room.parent.actions[actionName].script() :
-            require('../actions/' + actionName + 'Action')();
+        if (Room.parent.actions[actionName]?.script) {
+          actionItem = Room.parent.actions[actionName].script();
+        } else {
+          const ActionFactory = Actions[actionName];
+
+          if (!ActionFactory) {
+            throw new Error(`Unknown action: ${actionName}`);
+          }
+
+          actionItem = ActionFactory();
+        }
 
         Room.actions.push({
           name: actionName,

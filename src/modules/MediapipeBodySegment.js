@@ -1,6 +1,6 @@
-const BodySegmentation = require('@tensorflow-models/body-segmentation');
+import * as BodySegmentation from '@tensorflow-models/body-segmentation';
 
-module.exports = () => {
+export default () => {
   const body = {};
 
   body.initial = async (configs) => {

@@ -3,7 +3,7 @@
  * Development shortcuts module for WebRTC functionality
  * Provides simplified method names for common WebRTC operations
  */
-module.exports = (webrtc) => {
+export default (webrtc) => {
 
   const develop = {
     methods: new Map(),

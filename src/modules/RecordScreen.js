@@ -3,7 +3,7 @@
  * RecordScreen module for capturing and processing screen recordings with audio mixing.
  */
 
-module.exports = () => {
+export default () => {
 
     const RecordScreen = {
         parent: null,
@@ -243,17 +243,21 @@ module.exports = () => {
     /**
      * Clean up resources and reset state
      */
-    RecordScreen.cleanup = () => {
+    RecordScreen.cleanup = async () => {
         RecordScreen.recordedChunks = [];
         RecordScreen.mediaStream = null;
         RecordScreen.recorder = null;
-        RecordScreen._audioContext = null;
         RecordScreen._destination = null;
         RecordScreen._screenAudioSource = null;
         RecordScreen._micAudioSource = null;
         RecordScreen.parent.userSettings.record = false;
 
-        if (!RecordScreen.ffmpeg || !RecordScreen.isFFmpegLoaded) {
+        if (RecordScreen._audioContext) {
+            await RecordScreen._audioContext.close();
+            RecordScreen._audioContext = null;
+        }
+
+        if (RecordScreen.ffmpeg && RecordScreen.isFFmpegLoaded) {
             RecordScreen.ffmpeg.deleteFile('input.webm');
             RecordScreen.ffmpeg.deleteFile('output.mp4');
         }

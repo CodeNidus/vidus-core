@@ -1,12 +1,12 @@
-const faceDetection = require('./MediapipeFaceDetect.js')();
-const bodySegmentation = require('./MediapipeBodySegment.js')();
-const screenShare = require('./ShareScreen')();
-const screenRecord = require('./RecordScreen')();
+import createFaceDetection from "./MediapipeFaceDetect.js";
+import createBodySegmentation from "./MediapipeBodySegment.js";
+import createScreenShare from "./ShareScreen";
+import createRecordScreen from "./RecordScreen";
 
-module.exports = () => {
+export default () => {
 
   const DEFAULT_FPS = 30;
-  const BLUR_INTENSITY = 20;
+  const BLUR_INTENSITY = 8;
   const VIDEO_SCALE = 1.33;
   const RESOLUTIONS = {
     qvga: 320,
@@ -22,6 +22,11 @@ module.exports = () => {
     { name: ['NotAllowedError', 'PermissionDeniedError'], message: 'permission denied in browser' },
     { name: ['TypeError'], message: 'empty constraints object' },
   ];
+
+  const faceDetection = createFaceDetection();
+  const bodySegmentation = createBodySegmentation();
+  const screenShare = createScreenShare();
+  const screenRecord = createRecordScreen();
 
   /**
    * Create an empty, disabled video track by drawing a black canvas frame.
